@@ -4,7 +4,8 @@ import { Btn, Input, Select, Label, TagInput, SeverityBadge, Footer } from "../u
 import { useApp } from "../../lib/AppContext";
 import type { Vulnerability, Severity } from "../../types";
 import { defaultVuln } from "../../types";
-import { ChevronLeft, Calculator } from "lucide-react";
+import { ChevronLeft, Calculator, Paperclip, X as XIcon } from "lucide-react";
+import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 
 // ── CVSS 3.1 Calculator ───────────────────────────────────────────────────────
 const CVSS_METRICS = {
@@ -105,7 +106,10 @@ interface VulnFormProps {
 
 export function VulnForm({ projectId, existing, onSave, onCancel }: VulnFormProps) {
   const { vulns, saveVulns } = useApp();
-  const [form, setForm] = useState<Vulnerability>(existing ?? defaultVuln(projectId));
+  const [form, setForm] = useState<Vulnerability>({
+    ...(existing ?? defaultVuln(projectId)),
+    evidence_paths: existing?.evidence_paths ?? [],
+  });
   const [showCalc, setShowCalc] = useState(false);
   const [activeTab, setActiveTab] = useState<"details"|"technical"|"remediation">("details");
 
@@ -197,6 +201,31 @@ export function VulnForm({ projectId, existing, onSave, onCancel }: VulnFormProp
                 <div><Label>Description</Label><TA k="description" rows={4} placeholder="Describe the vulnerability..."/></div>
                 <div><Label>Impact</Label><TA k="impact" rows={3} placeholder="What is the business and technical impact?"/></div>
                 <div><Label>Tags</Label><TagInput tags={form.tags} onChange={v=>f("tags",v)} placeholder="Add tag..."/></div>
+              {/* Evidence attachments */}
+              <div style={{ marginTop:8 }}>
+                <label style={{ display:"block", fontSize:11, fontWeight:600, color:"#71717a", textTransform:"uppercase", letterSpacing:"0.8px", marginBottom:8 }}>
+                  Evidence Files
+                </label>
+                <button onClick={async () => {
+                  const path = await openFileDialog({ multiple: true });
+                  if (!path) return;
+                  const paths = Array.isArray(path) ? path : [path];
+                  f("evidence_paths", [...form.evidence_paths, ...paths]);
+                }} style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 12px", background:"#1a1a1a", border:"1px solid #2a2a2a", borderRadius:8, color:"#a1a1aa", cursor:"pointer", fontSize:12, fontFamily:"Inter,system-ui,sans-serif", marginBottom:8 }}>
+                  <span>📎</span> Attach Evidence Files
+                </button>
+                {form.evidence_paths.length > 0 && (
+                  <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                    {form.evidence_paths.map((p, i) => (
+                      <div key={i} style={{ display:"flex", alignItems:"center", gap:8, background:"#111", border:"1px solid #1f1f1f", borderRadius:6, padding:"5px 10px" }}>
+                        <span style={{ fontSize:12, color:"#3b82f6", fontFamily:"monospace", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.split(/[\\/]/).pop()}</span>
+                        <button onClick={() => f("evidence_paths", form.evidence_paths.filter((_,j)=>j!==i))} style={{ background:"none", border:"none", color:"#52525b", cursor:"pointer", fontSize:14, lineHeight:1 }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
                 <div><Label>References</Label><TagInput tags={form.references} onChange={v=>f("references",v)} placeholder="https://..."/></div>
               </div>
             )}

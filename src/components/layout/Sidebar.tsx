@@ -1,96 +1,98 @@
 // src/components/layout/Sidebar.tsx
 import React from "react";
 import { useApp } from "../../lib/AppContext";
-import { LayoutDashboard, FolderOpen, Shield, ArrowLeftRight, Settings, BookOpen, LogOut, LayoutTemplate } from "lucide-react";
+import {
+  LayoutDashboard, FolderOpen, Shield, BookOpen,
+  LayoutTemplate, ArrowLeftRight, Settings, LogOut, Download,
+} from "lucide-react";
 
-function PenForgeLogo({ size = 32 }: { size?: number }) {
+function Logo() {
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-      <circle cx="50" cy="50" r="46" stroke="#dc2626" strokeWidth="2" opacity="0.3"/>
-      <circle cx="50" cy="50" r="38" stroke="#dc2626" strokeWidth="1" opacity="0.5"/>
-      <line x1="4" y1="50" x2="16" y2="50" stroke="#dc2626" strokeWidth="2"/>
-      <line x1="84" y1="50" x2="96" y2="50" stroke="#dc2626" strokeWidth="2"/>
-      <line x1="50" y1="4" x2="50" y2="16" stroke="#dc2626" strokeWidth="2"/>
-      <line x1="50" y1="84" x2="50" y2="96" stroke="#dc2626" strokeWidth="2"/>
-      <line x1="18" y1="18" x2="24" y2="24" stroke="#dc2626" strokeWidth="1.5" opacity="0.6"/>
-      <line x1="82" y1="18" x2="76" y2="24" stroke="#dc2626" strokeWidth="1.5" opacity="0.6"/>
-      <line x1="18" y1="82" x2="24" y2="76" stroke="#dc2626" strokeWidth="1.5" opacity="0.6"/>
-      <line x1="82" y1="82" x2="76" y2="76" stroke="#dc2626" strokeWidth="1.5" opacity="0.6"/>
-      <path d="M50 20 L72 30 L72 52 C72 65 62 75 50 80 C38 75 28 65 28 52 L28 30 Z" fill="#dc2626" opacity="0.15" stroke="#dc2626" strokeWidth="2"/>
-      <path d="M50 28 L65 35 L65 51 C65 61 58 69 50 73 C42 69 35 61 35 51 L35 35 Z" fill="#dc2626" opacity="0.2"/>
-      <text x="50" y="60" textAnchor="middle" fontFamily="Inter,system-ui,sans-serif" fontSize="20" fontWeight="800" fill="#fff" letterSpacing="-1">PF</text>
-      <circle cx="4"  cy="50" r="2.5" fill="#dc2626"/>
-      <circle cx="96" cy="50" r="2.5" fill="#dc2626"/>
-      <circle cx="50" cy="4"  r="2.5" fill="#dc2626"/>
-      <circle cx="50" cy="96" r="2.5" fill="#dc2626"/>
+    <svg width="30" height="36" viewBox="0 0 40 44" fill="none">
+      <path d="M20 2L4 9v12c0 10.5 6.8 20.3 16 23 9.2-2.7 16-12.5 16-23V9L20 2z"
+        fill="#dc2626" opacity="0.2" stroke="#dc2626" strokeWidth="2"/>
+      <path d="M20 10L10 14v8c0 6.2 4.5 12 10 14 5.5-2 10-7.8 10-14v-8L20 10z"
+        fill="#dc2626" opacity="0.35"/>
+      <text x="20" y="27" textAnchor="middle" fill="white"
+        fontSize="12" fontWeight="700" fontFamily="Inter,system-ui,sans-serif">PF</text>
     </svg>
   );
 }
 
 const NAV = [
-  { id:"dashboard",  label:"Dashboard",        icon:LayoutDashboard },
-  { id:"projects",   label:"Projects",          icon:FolderOpen },
-  { id:"vulns",      label:"Vulnerabilities",   icon:Shield },
-  { id:"writeups",   label:"Writeup Library",   icon:BookOpen },
-  { id:"templates",  label:"Report Templates",  icon:LayoutTemplate },
-  { id:"sync",       label:"Import / Export",   icon:ArrowLeftRight },
-  { id:"settings",   label:"Settings",          icon:Settings },
+  { id:"dashboard",  label:"Dashboard",          Icon:LayoutDashboard },
+  { id:"projects",   label:"Projects",            Icon:FolderOpen },
+  { id:"vulns",      label:"Vulnerabilities",     Icon:Shield },
+  { id:"writeups",   label:"Writeup Library",     Icon:BookOpen },
+  { id:"import",     label:"Universal Importer",  Icon:Download },
+  { id:"templates",  label:"Report Templates",    Icon:LayoutTemplate },
+  { id:"sync",       label:"Import / Export",     Icon:ArrowLeftRight },
+  { id:"settings",   label:"Settings",            Icon:Settings },
 ];
 
 export function Sidebar() {
   const { currentPage, navigate, config, vulns, setAuthenticated } = useApp();
   const profile = config?.profile;
-  const openVulns = vulns.filter(v => v.status === "Open").length;
+  const openCount = vulns.filter(v => v.status === "Open").length;
+  const isActive = (id: string) =>
+    currentPage === id || (id === "projects" && currentPage === "project-detail");
 
   return (
-    <aside className="w-56 min-h-screen bg-[#080808] border-r border-[#1a1a1a] flex flex-col fixed left-0 top-0 bottom-0 z-10">
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-[#1a1a1a]">
-        <PenForgeLogo size={36}/>
+    <aside style={{
+      width:224, minHeight:"100vh", background:"#080808",
+      borderRight:"1px solid #1a1a1a", display:"flex", flexDirection:"column",
+      position:"fixed", left:0, top:0, bottom:0, zIndex:10,
+      fontFamily:"Inter, system-ui, sans-serif",
+    }}>
+      <div style={{ display:"flex", alignItems:"center", gap:12, padding:"18px 16px", borderBottom:"1px solid #1a1a1a" }}>
+        <Logo/>
         <div>
-          <div className="text-white font-bold text-sm leading-none tracking-wide">PenForge</div>
-          <div className="text-[#dc2626] text-[10px] mt-1 tracking-widest uppercase opacity-70">Report Manager</div>
+          <div style={{ color:"#f5f5f5", fontWeight:700, fontSize:14, lineHeight:1 }}>PenForge</div>
+          <div style={{ color:"#dc2626", fontSize:10, letterSpacing:3, textTransform:"uppercase", marginTop:4, opacity:.7 }}>Report Manager</div>
         </div>
       </div>
 
-      <nav className="flex-1 px-2 py-4 space-y-0.5">
-        {NAV.map(item => {
-          const active = currentPage === item.id || (item.id === "projects" && currentPage === "project-detail");
+      <nav style={{ flex:1, padding:"12px 8px", display:"flex", flexDirection:"column", gap:2 }}>
+        {NAV.map(({ id, label, Icon }) => {
+          const active = isActive(id);
           return (
-            <button key={item.id} onClick={() => navigate(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all relative group
-                ${active ? "text-[#dc2626] bg-[rgba(220,38,38,0.1)]" : "text-[#71717a] hover:text-[#f5f5f5] hover:bg-[#111]"}`}>
-              {active && <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#dc2626] rounded-full"/>}
-              <item.icon size={15} className={active ? "text-[#dc2626]" : ""}/>
-              <span className="flex-1 text-left">{item.label}</span>
-              {item.id === "vulns" && openVulns > 0 && (
-                <span className="bg-[#dc2626] text-white text-[10px] px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-tight font-bold">
-                  {openVulns > 99 ? "99+" : openVulns}
-                </span>
-              )}
-              {item.id === "writeups" && <span className="text-[10px] text-[#3f3f46] bg-[#111] border border-[#1f1f1f] px-1.5 py-0.5 rounded">61</span>}
+            <button key={id} onClick={() => navigate(id)} style={{
+              display:"flex", alignItems:"center", gap:10, padding:"9px 12px",
+              borderRadius:8, fontSize:12, fontWeight:500, cursor:"pointer",
+              border:"none", background:active?"rgba(220,38,38,0.09)":"transparent",
+              color:active?"#dc2626":"#71717a", width:"100%", textAlign:"left",
+              position:"relative", transition:"all 0.15s",
+            }}
+            onMouseEnter={e=>{ if(!active){(e.currentTarget as HTMLElement).style.background="#111";(e.currentTarget as HTMLElement).style.color="#f5f5f5";}}}
+            onMouseLeave={e=>{ if(!active){(e.currentTarget as HTMLElement).style.background="transparent";(e.currentTarget as HTMLElement).style.color="#71717a";}}}
+            >
+              {active&&<div style={{ position:"absolute", left:0, top:4, bottom:4, width:3, background:"#dc2626", borderRadius:"0 2px 2px 0" }}/>}
+              <Icon size={15}/>
+              <span style={{ flex:1 }}>{label}</span>
+              {id==="vulns"&&openCount>0&&<span style={{ background:"#dc2626", color:"#fff", fontSize:10, fontWeight:700, padding:"1px 6px", borderRadius:10, minWidth:18, textAlign:"center" }}>{openCount>99?"99+":openCount}</span>}
+              {id==="writeups"&&<span style={{ fontSize:10, color:"#3f3f46", background:"#111", border:"1px solid #1f1f1f", padding:"1px 5px", borderRadius:4 }}>61</span>}
             </button>
           );
         })}
       </nav>
 
-      <div className="border-t border-[#1a1a1a]">
-        {profile?.full_name && (
-          <div className="px-4 py-3 border-b border-[#111]">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-[rgba(220,38,38,0.2)] flex items-center justify-center text-[#dc2626] text-xs font-bold flex-shrink-0">
-                {profile.full_name[0]?.toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <div className="text-[#f5f5f5] text-xs font-medium truncate">{profile.full_name}</div>
-                {profile.title && <div className="text-[#52525b] text-[10px] truncate">{profile.title}</div>}
-              </div>
+      <div style={{ borderTop:"1px solid #1a1a1a" }}>
+        {profile?.full_name&&(
+          <div style={{ padding:"10px 14px", borderBottom:"1px solid #111", display:"flex", alignItems:"center", gap:10 }}>
+            <div style={{ width:28, height:28, borderRadius:"50%", background:"rgba(220,38,38,0.2)", display:"flex", alignItems:"center", justifyContent:"center", color:"#dc2626", fontSize:12, fontWeight:700, flexShrink:0 }}>
+              {profile.full_name[0]?.toUpperCase()}
+            </div>
+            <div style={{ minWidth:0 }}>
+              <div style={{ color:"#f5f5f5", fontSize:12, fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{profile.full_name}</div>
+              {profile.title&&<div style={{ color:"#52525b", fontSize:10, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{profile.title}</div>}
             </div>
           </div>
         )}
-        <button onClick={() => setAuthenticated(false)}
-          className="w-full flex items-center gap-2.5 px-4 py-3 text-xs text-[#52525b] hover:text-[#dc2626] transition-colors">
+        <button onClick={()=>setAuthenticated(false)} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 14px", background:"transparent", border:"none", color:"#52525b", fontSize:12, cursor:"pointer", transition:"color 0.15s" }}
+          onMouseEnter={e=>(e.currentTarget.style.color="#dc2626")} onMouseLeave={e=>(e.currentTarget.style.color="#52525b")}>
           <LogOut size={13}/> Lock App
         </button>
+        <div style={{ textAlign:"center", padding:"8px 0 10px", fontSize:11, color:"#3f3f46" }}>Made with ❤️ by Perchant</div>
       </div>
     </aside>
   );

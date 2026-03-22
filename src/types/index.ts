@@ -31,6 +31,7 @@ export interface Vulnerability {
   references: string[];
   status: VulnStatus;
   tags: string[];
+  evidence_paths: string[];  // paths to evidence files
   created_at: string;
   updated_at: string;
 }
@@ -96,6 +97,7 @@ export const defaultVuln = (project_id: string): Vulnerability => ({
   references: [],
   status: "Open",
   tags: [],
+  evidence_paths: [],
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 });
@@ -111,3 +113,21 @@ export const defaultProject = (): Project => ({
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 });
+
+// ── Risk Rating ───────────────────────────────────────────────────────────────
+export type RiskRating = "Critical" | "High" | "Medium" | "Low" | "None";
+
+export function projectRiskRating(vulns: Vulnerability[]): RiskRating {
+  const open = vulns.filter(v => v.status === "Open");
+  if (open.some(v => v.severity === "Critical")) return "Critical";
+  if (open.filter(v => v.severity === "High").length >= 2) return "High";
+  if (open.some(v => v.severity === "High")) return "High";
+  if (open.filter(v => v.severity === "Medium").length >= 3) return "Medium";
+  if (open.some(v => v.severity === "Medium")) return "Medium";
+  if (open.some(v => v.severity === "Low")) return "Low";
+  return "None";
+}
+
+export function riskColor(r: RiskRating): string {
+  return { Critical:"#ef4444", High:"#f97316", Medium:"#f59e0b", Low:"#3b82f6", None:"#22c55e" }[r];
+}

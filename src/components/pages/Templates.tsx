@@ -1,178 +1,207 @@
 // src/components/pages/Templates.tsx
-import React, { useState, useEffect, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import React, { useState, useEffect, useRef } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { Btn, Footer, EmptyState } from "../ui";
-import { PLACEHOLDERS, getBuiltInTemplate, applyPlaceholders } from "../../lib/reportGenerator";
+import { Btn, Footer, Input, Label } from "../ui";
+import {
+  PLACEHOLDERS, getBuiltInTemplate, applyPlaceholders
+} from "../../lib/reportGenerator";
+import {
+  importHtmlTemplate, loadAllTemplates, deleteTemplate,
+  findPlaceholders, renderAndPreview,
+} from "../../lib/pdfTemplateEngine";
+import type { UploadedTemplate } from "../../lib/pdfTemplateEngine";
 import { useApp } from "../../lib/AppContext";
 import {
   FileText, Plus, Trash2, Eye, Download, Upload, Copy,
-  Check, Info, BookOpen, Pencil, X, Save, ChevronDown, ChevronRight
+  Check, BookOpen, Pencil, X, Save, ChevronDown, ChevronRight,
+  AlertTriangle, Tag,
 } from "lucide-react";
 
-interface Template {
-  id: string;
-  name: string;
-  description: string;
-  content: string;
-  isBuiltIn: boolean;
-  createdAt: string;
-}
+const F = "Inter, system-ui, sans-serif";
 
-const BUILT_IN: Template = {
-  id: "builtin",
-  name: "PenForge Default",
-  description: "Professional dark-accented report with cover page, executive summary, detailed findings, and remediation table.",
-  content: getBuiltInTemplate(),
-  isBuiltIn: true,
-  createdAt: "",
+const BUILT_IN: UploadedTemplate = {
+  id: "builtin", name: "PenForge Default",
+  description: "Professional dark-accent report. Cover, exec summary, findings table, detailed writeups, remediation table.",
+  type: "html", content: getBuiltInTemplate(),
+  uploadedAt: "", originalFilename: "built-in",
+  placeholdersFound: Object.keys(PLACEHOLDERS),
 };
 
 export function Templates() {
   const { projects, vulns } = useApp();
-  const [templates, setTemplates] = useState<Template[]>([BUILT_IN]);
-  const [selected, setSelected] = useState<Template>(BUILT_IN);
+  const [templates, setTemplates] = useState<UploadedTemplate[]>([BUILT_IN]);
+  const [selected, setSelected] = useState<UploadedTemplate>(BUILT_IN);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState("");
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
-  const [previewProject, setPreviewProject] = useState(projects[0]?.id ?? "");
-  const [showPlaceholders, setShowPlaceholders] = useState(false);
+  const [previewProjectId, setPreviewProjectId] = useState(projects[0]?.id ?? "");
+  const [showPH, setShowPH] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [saveMsg, setSaveMsg] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadName, setUploadName] = useState("");
+  const [uploadDesc, setUploadDesc] = useState("");
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [pendingPath, setPendingPath] = useState("");
 
-  useEffect(() => { loadTemplates(); }, []);
+  useEffect(() => { load(); }, []);
 
-  const loadTemplates = async () => {
-    try {
-      const names = await invoke<string[]>("list_templates");
-      const loaded: Template[] = [];
-      for (const name of names) {
-        const raw = await invoke<string>("read_json_file", { filename: `templates/${name}` }).catch(() => "");
-        if (!raw) continue;
-        try {
-          const t = JSON.parse(raw) as Template;
-          loaded.push(t);
-        } catch {}
-      }
-      setTemplates([BUILT_IN, ...loaded]);
-    } catch {}
+  const load = async () => {
+    const saved = await loadAllTemplates();
+    setTemplates([BUILT_IN, ...saved]);
   };
 
-  const saveTemplate = async () => {
-    if (!editName.trim() || !editContent.trim()) return;
-    const id = selected.isBuiltIn ? `template_${Date.now()}` : selected.id;
-    const t: Template = {
-      id,
-      name: editName,
-      description: editDesc,
-      content: editContent,
-      isBuiltIn: false,
-      createdAt: new Date().toISOString(),
+  const handleUpload = async () => {
+    const path = await openDialog({
+      filters: [{ name: "HTML Template", extensions: ["html","htm"] }],
+    });
+    if (!path || typeof path !== "string") return;
+    const fname = path.split(/[\\/]/).pop() ?? path;
+    setPendingPath(path);
+    setUploadName(fname.replace(/\.(html?)$/i, ""));
+    setUploadDesc("Custom HTML report template");
+    setShowUploadForm(true);
+  };
+
+  const confirmUpload = async () => {
+    if (!pendingPath || !uploadName) return;
+    setUploading(true);
+    try {
+      const t = await importHtmlTemplate(pendingPath, uploadName, uploadDesc);
+      await load();
+      setSelected(t);
+      setShowUploadForm(false);
+      setPendingPath("");
+      setSaveMsg(`✓ Template "${uploadName}" imported`);
+      setTimeout(() => setSaveMsg(""), 3000);
+    } catch(e) { alert(`Import failed: ${e}`); }
+    setUploading(false);
+  };
+
+  const saveEdit = async () => {
+    if (!editName || !editContent) return;
+    const id = selected.id === "builtin" ? `tpl_${Date.now()}` : selected.id;
+    const t: UploadedTemplate = {
+      ...selected, id, name: editName, description: editDesc,
+      content: editContent, type: "html",
+      uploadedAt: new Date().toISOString(),
+      originalFilename: selected.originalFilename,
+      placeholdersFound: findPlaceholders(editContent),
     };
+    const { invoke } = await import("@tauri-apps/api/core");
     await invoke("save_template", {
       filename: `templates/${id}.json`,
       content: JSON.stringify(t, null, 2),
     });
-    await loadTemplates();
-    setSelected(t);
-    setEditing(false);
-    setSaveMsg("✓ Template saved");
-    setTimeout(() => setSaveMsg(""), 2500);
+    await load();
+    setSelected(t); setEditing(false);
+    setSaveMsg("✓ Saved"); setTimeout(() => setSaveMsg(""), 2000);
   };
 
-  const deleteTemplate = async (t: Template) => {
-    if (t.isBuiltIn) return;
-    await invoke("delete_template", { filename: `${t.id}.json` });
-    await loadTemplates();
+  const del = async (t: UploadedTemplate) => {
+    if (t.id === "builtin") return;
+    await deleteTemplate(t.id);
+    await load();
     setSelected(BUILT_IN);
   };
 
-  const importTemplate = async () => {
-    const path = await openDialog({ filters: [{ name: "HTML Template", extensions: ["html", "htm"] }] });
-    if (!path || typeof path !== "string") return;
-    const html = await invoke<string>("read_template_file", { path });
-    const name = path.split(/[\\/]/).pop()?.replace(/\.(html?)/i, "") ?? "Imported Template";
-    setEditName(name);
-    setEditDesc("Imported HTML template");
-    setEditContent(html);
-    setEditing(true);
-    setSelected({ ...BUILT_IN, name: "New Template", isBuiltIn: false });
+  const preview = async () => {
+    const proj = projects.find(p => p.id === previewProjectId) ?? projects[0];
+    if (!proj) { alert("Add a project first."); return; }
+    const pv = vulns.filter(v => v.project_id === proj.id);
+    await renderAndPreview(selected, proj, pv);
   };
 
-  const startEdit = (t: Template) => {
-    setSelected(t);
-    setEditName(t.isBuiltIn ? `${t.name} (copy)` : t.name);
+  const exportHtml = () => {
+    const blob = new Blob([selected.content], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${selected.name.replace(/\s+/g,"_")}.html`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  const copyPH = (ph: string) => {
+    navigator.clipboard.writeText(ph);
+    setCopied(ph); setTimeout(() => setCopied(null), 1500);
+  };
+
+  const startEdit = (t: UploadedTemplate) => {
+    setEditName(t.id === "builtin" ? `${t.name} (copy)` : t.name);
     setEditDesc(t.description);
     setEditContent(t.content);
     setEditing(true);
   };
 
-  const startNew = () => {
-    setEditName("My Custom Template");
-    setEditDesc("Custom penetration test report");
-    setEditContent(getBuiltInTemplate());
-    setEditing(true);
-    setSelected({ ...BUILT_IN, id: "", name: "New Template", isBuiltIn: false });
-  };
-
-  const preview = () => {
-    const proj = projects.find(p => p.id === previewProject) ?? projects[0];
-    if (!proj) { alert("Add a project first to preview."); return; }
-    const pVulns = vulns.filter(v => v.project_id === proj.id);
-    const { loadConfig } = require("../../lib/storage");
-    loadConfig().then((cfg: any) => {
-      const html = applyPlaceholders(selected.content, proj, pVulns, cfg?.profile ?? null);
-      invoke("open_report_in_browser", { html });
-    });
-  };
-
-  const copyPlaceholder = (ph: string) => {
-    navigator.clipboard.writeText(ph);
-    setCopied(ph);
-    setTimeout(() => setCopied(null), 1500);
-  };
-
-  const exportTemplate = () => {
-    const blob = new Blob([selected.content], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${selected.name.replace(/\s+/g, "_")}_template.html`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const panelStyle: React.CSSProperties = { flex:1, overflow:"hidden", display:"flex", flexDirection:"column" };
+  const thStyle: React.CSSProperties = { padding:"8px 12px", background:"#0d0d0d", borderBottom:"1px solid #1a1a1a", fontFamily:F };
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Left: template list */}
-      <div className="w-72 flex-shrink-0 flex flex-col border-r border-[#1f1f1f] bg-[#080808]">
-        <div className="p-4 border-b border-[#1f1f1f]">
-          <div className="flex items-center gap-2 mb-3">
-            <FileText size={15} className="text-[#dc2626]"/>
-            <span className="text-sm font-bold text-[#f5f5f5]">Report Templates</span>
+    <div style={{ display:"flex", height:"100%", overflow:"hidden", fontFamily:F }}>
+
+      {/* ── Left sidebar ─────────────────────────────────────────────── */}
+      <div style={{ width:280, flexShrink:0, display:"flex", flexDirection:"column", borderRight:"1px solid #1a1a1a", background:"#080808", overflow:"hidden" }}>
+        <div style={{ padding:16, borderBottom:"1px solid #1a1a1a" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+            <FileText size={15} style={{ color:"#dc2626" }}/>
+            <span style={{ fontSize:13, fontWeight:700, color:"#f5f5f5" }}>Report Templates</span>
           </div>
-          <div className="flex gap-2">
-            <Btn variant="primary" size="sm" onClick={startNew} className="flex-1 justify-center"><Plus size={12}/>New</Btn>
-            <Btn variant="muted" size="sm" onClick={importTemplate} className="flex-1 justify-center"><Upload size={12}/>Import HTML</Btn>
+          <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+            <Btn variant="primary" size="sm" onClick={handleUpload} style={{ justifyContent:"center" }}>
+              <Upload size={12}/>Upload HTML Template
+            </Btn>
+            <Btn variant="muted" size="sm" onClick={() => startEdit(BUILT_IN)} style={{ justifyContent:"center" }}>
+              <Plus size={12}/>Fork Built-in Template
+            </Btn>
           </div>
+          {saveMsg && <div style={{ marginTop:8, fontSize:12, color:"#22c55e" }}>{saveMsg}</div>}
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        {/* Upload name/desc form */}
+        {showUploadForm && (
+          <div style={{ padding:12, background:"#0d0d0d", borderBottom:"1px solid #1a1a1a" }}>
+            <div style={{ fontSize:11, color:"#dc2626", marginBottom:10, fontWeight:600 }}>Name your template</div>
+            <div style={{ marginBottom:8 }}>
+              <Label>Name</Label>
+              <Input value={uploadName} onChange={e => setUploadName(e.target.value)} placeholder="My Company Template"/>
+            </div>
+            <div style={{ marginBottom:10 }}>
+              <Label>Description</Label>
+              <Input value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} placeholder="Short description"/>
+            </div>
+            <div style={{ display:"flex", gap:6 }}>
+              <Btn variant="primary" size="sm" onClick={confirmUpload} disabled={uploading || !uploadName}>
+                {uploading ? "Importing…" : "Import"}
+              </Btn>
+              <Btn variant="muted" size="sm" onClick={() => setShowUploadForm(false)}>Cancel</Btn>
+            </div>
+          </div>
+        )}
+
+        {/* Template list */}
+        <div style={{ flex:1, overflowY:"auto" }}>
           {templates.map(t => (
             <div key={t.id} onClick={() => { setSelected(t); setEditing(false); }}
-              className={`px-4 py-3.5 border-b border-[#111] cursor-pointer transition-all group ${selected.id === t.id ? "bg-[rgba(220,38,38,0.07)] border-l-2 border-l-[#dc2626]" : "hover:bg-[#111]"}`}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-[#f5f5f5] truncate">{t.name}</span>
-                    {t.isBuiltIn && <span className="text-[9px] bg-[rgba(220,38,38,0.15)] text-[#dc2626] border border-[#dc2626]/30 px-1.5 py-0.5 rounded uppercase tracking-wide font-bold flex-shrink-0">Built-in</span>}
+              style={{
+                padding:"12px 14px", borderBottom:"1px solid #111", cursor:"pointer",
+                background: selected.id === t.id ? "rgba(220,38,38,0.06)" : "transparent",
+                borderLeft: selected.id === t.id ? "2px solid #dc2626" : "2px solid transparent",
+                transition:"all 0.15s",
+              }}>
+              <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
+                <div style={{ minWidth:0 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                    <span style={{ fontSize:12, fontWeight:600, color:"#f5f5f5", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.name}</span>
+                    {t.id === "builtin" && <span style={{ fontSize:9, background:"rgba(220,38,38,0.15)", color:"#dc2626", border:"1px solid rgba(220,38,38,0.3)", padding:"1px 5px", borderRadius:4, textTransform:"uppercase", fontWeight:700, flexShrink:0 }}>Built-in</span>}
                   </div>
-                  <p className="text-[10px] text-[#52525b] mt-1 truncate">{t.description}</p>
+                  <div style={{ fontSize:10, color:"#52525b", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{t.description}</div>
+                  <div style={{ fontSize:10, color:"#3a3a3a", marginTop:3 }}>{t.placeholdersFound.length} placeholders</div>
                 </div>
-                {!t.isBuiltIn && (
-                  <button onClick={e => { e.stopPropagation(); deleteTemplate(t); }}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-[#52525b] hover:text-red-400 transition-all">
+                {t.id !== "builtin" && (
+                  <button onClick={e => { e.stopPropagation(); del(t); }}
+                    style={{ background:"none", border:"none", color:"#3a3a3a", cursor:"pointer", padding:2, flexShrink:0, transition:"color 0.15s" }}
+                    onMouseEnter={e => (e.currentTarget.style.color="#ef4444")}
+                    onMouseLeave={e => (e.currentTarget.style.color="#3a3a3a")}>
                     <Trash2 size={12}/>
                   </button>
                 )}
@@ -182,145 +211,182 @@ export function Templates() {
         </div>
 
         {/* Placeholder reference */}
-        <div className="border-t border-[#1f1f1f]">
-          <button onClick={() => setShowPlaceholders(!showPlaceholders)}
-            className="w-full flex items-center justify-between px-4 py-3 text-xs text-[#71717a] hover:text-[#f5f5f5] transition-colors">
-            <div className="flex items-center gap-2"><Info size={13}/>Placeholder Reference</div>
-            {showPlaceholders ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}
+        <div style={{ borderTop:"1px solid #1a1a1a" }}>
+          <button onClick={() => setShowPH(!showPH)} style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 14px", background:"none", border:"none", color:"#71717a", cursor:"pointer", fontSize:12, fontFamily:F }}>
+            <span style={{ display:"flex", alignItems:"center", gap:7 }}><Tag size={12}/>Placeholders</span>
+            {showPH ? <ChevronDown size={11}/> : <ChevronRight size={11}/>}
           </button>
-          {showPlaceholders && (
-            <div className="px-3 pb-3 max-h-64 overflow-y-auto space-y-1">
+          {showPH && (
+            <div style={{ maxHeight:240, overflowY:"auto", padding:"0 8px 8px" }}>
               {Object.entries(PLACEHOLDERS).map(([ph, desc]) => (
-                <div key={ph} onClick={() => copyPlaceholder(ph)}
-                  className="flex items-center justify-between gap-2 p-1.5 rounded hover:bg-[#111] cursor-pointer group">
+                <div key={ph} onClick={() => copyPH(ph)}
+                  style={{ padding:"6px 8px", borderRadius:6, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}
+                  onMouseEnter={e => (e.currentTarget.style.background="#111")}
+                  onMouseLeave={e => (e.currentTarget.style.background="transparent")}>
                   <div>
-                    <div className="text-[10px] font-mono text-[#dc2626]">{ph}</div>
-                    <div className="text-[9px] text-[#52525b]">{desc}</div>
+                    <div style={{ fontSize:10, fontFamily:"monospace", color:"#dc2626" }}>{ph}</div>
+                    <div style={{ fontSize:9, color:"#52525b" }}>{desc}</div>
                   </div>
-                  {copied === ph
-                    ? <Check size={10} className="text-[#22c55e] flex-shrink-0"/>
-                    : <Copy size={10} className="text-[#2a2a2a] group-hover:text-[#71717a] flex-shrink-0"/>}
+                  {copied === ph ? <Check size={10} style={{ color:"#22c55e", flexShrink:0 }}/> : <Copy size={10} style={{ color:"#3a3a3a", flexShrink:0 }}/>}
                 </div>
               ))}
             </div>
           )}
         </div>
-        <div className="p-3 text-center text-[10px] text-[#3f3f46] border-t border-[#1f1f1f]">Made with ❤️ by Perchant</div>
+        <div style={{ textAlign:"center", padding:"8px 0 10px", fontSize:11, color:"#3f3f46", borderTop:"1px solid #1a1a1a" }}>Made with ❤️ by Perchant</div>
       </div>
 
-      {/* Right: editor / detail */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-[#0a0a0a]">
+      {/* ── Right panel ──────────────────────────────────────────────── */}
+      <div style={panelStyle}>
         {editing ? (
+          /* ── EDITOR ── */
           <>
-            {/* Editor toolbar */}
-            <div className="flex items-center gap-3 px-5 py-3 border-b border-[#1f1f1f] bg-[#0d0d0d] flex-shrink-0">
-              <div className="flex-1 min-w-0">
+            <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 20px", borderBottom:"1px solid #1f1f1f", background:"#0d0d0d", flexShrink:0 }}>
+              <div style={{ flex:1 }}>
                 <input value={editName} onChange={e => setEditName(e.target.value)}
-                  className="w-full bg-transparent text-[#f5f5f5] text-sm font-semibold focus:outline-none border-b border-transparent focus:border-[#dc2626] pb-0.5 transition-colors"
-                  placeholder="Template name..."/>
+                  placeholder="Template name"
+                  style={{ width:"100%", background:"transparent", border:"none", borderBottom:"1px solid #2a2a2a", color:"#f5f5f5", fontSize:14, fontWeight:700, outline:"none", paddingBottom:3, fontFamily:F }}/>
                 <input value={editDesc} onChange={e => setEditDesc(e.target.value)}
-                  className="w-full bg-transparent text-[#52525b] text-xs focus:outline-none mt-1"
-                  placeholder="Short description..."/>
+                  placeholder="Short description"
+                  style={{ width:"100%", background:"transparent", border:"none", color:"#71717a", fontSize:12, outline:"none", marginTop:4, fontFamily:F }}/>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {saveMsg && <span className="text-xs text-[#22c55e] animate-fade-in">{saveMsg}</span>}
+              <div style={{ display:"flex", gap:8, flexShrink:0 }}>
+                {saveMsg && <span style={{ fontSize:12, color:"#22c55e" }}>{saveMsg}</span>}
                 <Btn variant="muted" size="sm" onClick={() => setEditing(false)}><X size={12}/>Cancel</Btn>
-                <Btn variant="primary" size="sm" onClick={saveTemplate}><Save size={12}/>Save Template</Btn>
+                <Btn variant="primary" size="sm" onClick={saveEdit}><Save size={12}/>Save</Btn>
               </div>
             </div>
-
-            {/* HTML editor */}
-            <div className="flex-1 overflow-hidden flex flex-col p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-[10px] text-[#52525b] uppercase tracking-wide">HTML Editor — Use placeholders from the reference panel on the left</span>
-                <span className="text-[10px] text-[#3a3a3a] ml-auto">{editContent.length.toLocaleString()} chars</span>
+            <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column", padding:16 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+                <span style={{ fontSize:11, color:"#52525b" }}>HTML editor — use {"{{PLACEHOLDER}}"} syntax from the reference panel</span>
+                <span style={{ fontSize:11, color:"#3a3a3a" }}>{editContent.length.toLocaleString()} chars</span>
               </div>
-              <textarea
-                value={editContent}
-                onChange={e => setEditContent(e.target.value)}
-                className="flex-1 bg-[#0d0d0d] border border-[#1f1f1f] text-[#d4d4d8] font-mono text-xs rounded-xl p-4 focus:outline-none focus:border-[#dc2626] resize-none leading-relaxed"
+              <textarea value={editContent} onChange={e => setEditContent(e.target.value)}
+                style={{ flex:1, background:"#0d0d0d", border:"1px solid #1f1f1f", color:"#d4d4d8", fontFamily:"monospace", fontSize:12, borderRadius:10, padding:14, outline:"none", resize:"none", lineHeight:1.6, transition:"border 0.15s" }}
                 spellCheck={false}
-                placeholder="Paste your HTML template here. Use {{PLACEHOLDER}} syntax."
+                onFocus={e => (e.target.style.borderColor="#dc2626")}
+                onBlur={e  => (e.target.style.borderColor="#1f1f1f")}
               />
             </div>
           </>
         ) : (
+          /* ── DETAIL ── */
           <>
-            {/* Detail view */}
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-[#1f1f1f] bg-[#0d0d0d] flex-shrink-0">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-bold text-[#f5f5f5]">{selected.name}</h2>
-                  {selected.isBuiltIn && <span className="text-[9px] bg-[rgba(220,38,38,0.15)] text-[#dc2626] border border-[#dc2626]/30 px-1.5 py-0.5 rounded uppercase tracking-wide font-bold">Built-in</span>}
+            <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 20px", borderBottom:"1px solid #1f1f1f", background:"#0d0d0d", flexShrink:0, flexWrap:"wrap" }}>
+              <div style={{ flex:1 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:15, fontWeight:700, color:"#f5f5f5" }}>{selected.name}</span>
+                  {selected.id === "builtin" && <span style={{ fontSize:9, background:"rgba(220,38,38,0.15)", color:"#dc2626", border:"1px solid rgba(220,38,38,0.3)", padding:"1px 5px", borderRadius:4, textTransform:"uppercase", fontWeight:700 }}>Built-in</span>}
                 </div>
-                <p className="text-xs text-[#71717a] mt-0.5">{selected.description}</p>
+                <div style={{ fontSize:12, color:"#71717a", marginTop:3 }}>{selected.description}</div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div style={{ display:"flex", gap:8, flexShrink:0, flexWrap:"wrap" }}>
                 {projects.length > 0 && (
-                  <select value={previewProject} onChange={e => setPreviewProject(e.target.value)}
-                    className="bg-[#111] border border-[#1f1f1f] text-[#a1a1aa] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-[#dc2626]">
+                  <select value={previewProjectId} onChange={e => setPreviewProjectId(e.target.value)}
+                    style={{ background:"#111", border:"1px solid #1f1f1f", color:"#a1a1aa", borderRadius:8, padding:"5px 10px", fontSize:12, outline:"none", fontFamily:F }}>
                     {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 )}
-                <Btn variant="muted" size="sm" onClick={exportTemplate}><Download size={12}/>Export HTML</Btn>
+                <Btn variant="muted" size="sm" onClick={exportHtml}><Download size={12}/>Export HTML</Btn>
                 <Btn variant="ghost" size="sm" onClick={preview}><Eye size={12}/>Preview Report</Btn>
-                <Btn variant="muted" size="sm" onClick={() => startEdit(selected)}><Pencil size={12}/>{selected.isBuiltIn ? "Fork" : "Edit"}</Btn>
+                <Btn variant="muted" size="sm" onClick={() => startEdit(selected)}><Pencil size={12}/>{selected.id === "builtin" ? "Fork & Edit" : "Edit"}</Btn>
               </div>
             </div>
 
-            {/* Template info */}
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="max-w-2xl space-y-5">
+            <div style={{ flex:1, overflowY:"auto", padding:24 }}>
+              <div style={{ maxWidth:680, display:"flex", flexDirection:"column", gap:20 }}>
+
                 {/* How to use */}
-                <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-5">
-                  <h3 className="text-sm font-semibold text-[#f5f5f5] mb-3 flex items-center gap-2">
-                    <BookOpen size={14} className="text-[#dc2626]"/>How to use this template
-                  </h3>
-                  <ol className="space-y-2 text-sm text-[#a1a1aa]">
-                    <li className="flex gap-3"><span className="text-[#dc2626] font-bold flex-shrink-0">1.</span>Click <span className="text-[#f5f5f5] font-medium">Preview Report</span> to generate a report using a selected project.</li>
-                    <li className="flex gap-3"><span className="text-[#dc2626] font-bold flex-shrink-0">2.</span>Your browser opens with the full HTML report and a <span className="text-[#f5f5f5] font-medium">Save as PDF</span> button.</li>
-                    <li className="flex gap-3"><span className="text-[#dc2626] font-bold flex-shrink-0">3.</span>Click <span className="text-[#f5f5f5] font-medium">Save as PDF</span> or press <kbd className="bg-[#1a1a1a] border border-[#2a2a2a] px-1.5 py-0.5 rounded text-xs text-[#f5f5f5]">Ctrl+P</kbd> and choose "Save as PDF".</li>
+                <div style={{ background:"#111", border:"1px solid #1f1f1f", borderRadius:12, padding:20 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
+                    <BookOpen size={14} style={{ color:"#dc2626" }}/>
+                    <span style={{ fontSize:13, fontWeight:600, color:"#f5f5f5" }}>How to generate a report</span>
+                  </div>
+                  <ol style={{ display:"flex", flexDirection:"column", gap:10, paddingLeft:0, listStyle:"none" }}>
+                    {[
+                      ["1.", "Select a project in the dropdown above"],
+                      ["2.", "Click Preview Report — your browser opens with the fully rendered report"],
+                      ["3.", "Press Ctrl+P and choose Save as PDF, or click the Save as PDF button in the page"],
+                    ].map(([n,t]) => (
+                      <li key={n} style={{ display:"flex", gap:12, fontSize:13, color:"#a1a1aa" }}>
+                        <span style={{ color:"#dc2626", fontWeight:700, flexShrink:0 }}>{n}</span>{t}
+                      </li>
+                    ))}
                   </ol>
                 </div>
 
-                {/* Custom template guide */}
-                <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-5">
-                  <h3 className="text-sm font-semibold text-[#f5f5f5] mb-3 flex items-center gap-2">
-                    <Upload size={14} className="text-[#dc2626]"/>Import your own template
-                  </h3>
-                  <p className="text-sm text-[#a1a1aa] mb-3">Create an HTML file using your company's branding. Add placeholders where PenForge should inject data:</p>
-                  <div className="bg-[#0d0d0d] border border-[#1a1a1a] rounded-lg p-3 font-mono text-xs text-[#d4d4d8] space-y-1">
-                    <div><span className="text-[#71717a]">&lt;!-- Client name: --&gt;</span></div>
-                    <div><span className="text-[#22c55e]">{"{{CLIENT_NAME}}"}</span></div>
-                    <div className="mt-2"><span className="text-[#71717a]">&lt;!-- Auto-generated findings table: --&gt;</span></div>
-                    <div><span className="text-[#22c55e]">{"{{FINDINGS_TABLE}}"}</span></div>
-                    <div className="mt-2"><span className="text-[#71717a]">&lt;!-- Detailed writeups: --&gt;</span></div>
-                    <div><span className="text-[#22c55e]">{"{{FINDINGS_DETAIL}}"}</span></div>
+                {/* Upload guide */}
+                <div style={{ background:"#111", border:"1px solid #1f1f1f", borderRadius:12, padding:20 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
+                    <Upload size={14} style={{ color:"#dc2626" }}/>
+                    <span style={{ fontSize:13, fontWeight:600, color:"#f5f5f5" }}>Upload your own HTML template</span>
                   </div>
-                  <div className="mt-3 flex gap-2">
-                    <Btn variant="ghost" size="sm" onClick={importTemplate}><Upload size={12}/>Import HTML File</Btn>
-                    <Btn variant="muted" size="sm" onClick={() => startEdit(BUILT_IN)}><Copy size={12}/>Fork Built-in as Starting Point</Btn>
+                  <p style={{ fontSize:13, color:"#a1a1aa", marginBottom:12, lineHeight:1.7 }}>
+                    Build a report in your company's branding using HTML + CSS. Add <code style={{ background:"#0d0d0d", padding:"1px 5px", borderRadius:3, fontSize:12, color:"#dc2626" }}>{"{{PLACEHOLDER}}"}</code> tokens wherever PenForge should inject data.
+                  </p>
+                  <div style={{ background:"#0d0d0d", border:"1px solid #1a1a1a", borderRadius:8, padding:14, fontFamily:"monospace", fontSize:12, color:"#d4d4d8", lineHeight:1.8 }}>
+                    <div style={{ color:"#71717a" }}>{`<!-- Your company header -->`}</div>
+                    <div style={{ color:"#22c55e" }}>{`<h1>{{CLIENT_NAME}}</h1>`}</div>
+                    <div style={{ color:"#22c55e" }}>{`<p>Tested by: {{TESTER_NAME}}, {{TESTER_COMPANY}}</p>`}</div>
+                    <div style={{ color:"#71717a", marginTop:8 }}>{`<!-- Auto-populated findings table -->`}</div>
+                    <div style={{ color:"#22c55e" }}>{`{{FINDINGS_TABLE}}`}</div>
+                    <div style={{ color:"#71717a", marginTop:8 }}>{`<!-- Full writeup sections -->`}</div>
+                    <div style={{ color:"#22c55e" }}>{`{{FINDINGS_DETAIL}}`}</div>
+                    <div style={{ color:"#71717a", marginTop:8 }}>{`<!-- Remediation table -->`}</div>
+                    <div style={{ color:"#22c55e" }}>{`{{REMEDIATION_TABLE}}`}</div>
+                  </div>
+                  <div style={{ marginTop:14 }}>
+                    <Btn variant="primary" size="sm" onClick={handleUpload}><Upload size={12}/>Upload HTML File</Btn>
                   </div>
                 </div>
 
-                {/* Placeholder list */}
-                <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-5">
-                  <h3 className="text-sm font-semibold text-[#f5f5f5] mb-3">All Available Placeholders</h3>
-                  <div className="grid grid-cols-2 gap-2">
+                {/* Placeholders found in current template */}
+                {selected.placeholdersFound.length > 0 && (
+                  <div style={{ background:"#111", border:"1px solid #1f1f1f", borderRadius:12, padding:20 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:"#f5f5f5", marginBottom:12 }}>
+                      Placeholders in this template ({selected.placeholdersFound.length})
+                    </div>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                      {selected.placeholdersFound.map(ph => {
+                        const desc = (PLACEHOLDERS as Record<string,string>)[ph];
+                        return (
+                          <div key={ph} onClick={() => copyPH(ph)}
+                            style={{ background:"#0d0d0d", border:"1px solid #1a1a1a", borderRadius:8, padding:"8px 12px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"space-between" }}
+                            onMouseEnter={e => (e.currentTarget.style.borderColor="#dc262644")}
+                            onMouseLeave={e => (e.currentTarget.style.borderColor="#1a1a1a")}>
+                            <div>
+                              <div style={{ fontSize:11, fontFamily:"monospace", color:"#dc2626" }}>{ph}</div>
+                              {desc && <div style={{ fontSize:10, color:"#52525b", marginTop:2 }}>{desc}</div>}
+                            </div>
+                            {copied === ph ? <Check size={11} style={{ color:"#22c55e" }}/> : <Copy size={11} style={{ color:"#3a3a3a" }}/>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* All available placeholders */}
+                <div style={{ background:"#111", border:"1px solid #1f1f1f", borderRadius:12, padding:20 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:"#f5f5f5", marginBottom:12 }}>
+                    All Available Placeholders
+                  </div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
                     {Object.entries(PLACEHOLDERS).map(([ph, desc]) => (
-                      <div key={ph} onClick={() => copyPlaceholder(ph)}
-                        className="flex items-center justify-between gap-2 bg-[#0d0d0d] border border-[#1a1a1a] rounded-lg px-3 py-2 cursor-pointer hover:border-[#dc2626]/40 transition-all group">
-                        <div>
-                          <div className="text-[10px] font-mono text-[#dc2626]">{ph}</div>
-                          <div className="text-[9px] text-[#52525b]">{desc}</div>
+                      <div key={ph} onClick={() => copyPH(ph)}
+                        style={{ background:"#0d0d0d", border:"1px solid #1a1a1a", borderRadius:7, padding:"7px 10px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}
+                        onMouseEnter={e => (e.currentTarget.style.borderColor="#dc262633")}
+                        onMouseLeave={e => (e.currentTarget.style.borderColor="#1a1a1a")}>
+                        <div style={{ minWidth:0 }}>
+                          <div style={{ fontSize:10, fontFamily:"monospace", color:"#dc2626", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{ph}</div>
+                          <div style={{ fontSize:9, color:"#52525b" }}>{desc}</div>
                         </div>
-                        {copied === ph
-                          ? <Check size={11} className="text-[#22c55e] flex-shrink-0"/>
-                          : <Copy size={11} className="text-[#2a2a2a] group-hover:text-[#71717a] flex-shrink-0"/>}
+                        {copied === ph ? <Check size={10} style={{ color:"#22c55e", flexShrink:0 }}/> : <Copy size={10} style={{ color:"#3a3a3a", flexShrink:0 }}/>}
                       </div>
                     ))}
                   </div>
                 </div>
+
               </div>
             </div>
           </>

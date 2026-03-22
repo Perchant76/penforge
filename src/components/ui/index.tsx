@@ -1,126 +1,223 @@
-// src/components/ui/index.tsx
+// src/components/ui/index.tsx — All styles inline for production safety
 import React from "react";
 import type { Severity, VulnStatus, ProjectStatus } from "../../types";
-import { SEVERITY_COLORS, SEVERITY_BG } from "../../types";
+import { SEVERITY_COLORS } from "../../types";
 
-// ── Shield Logo ───────────────────────────────────────────────────────────────
-export function ShieldLogo({ size = 32 }: { size?: number }) {
+const F = "Inter, system-ui, sans-serif";
+
+// ── Logo / Shield ─────────────────────────────────────────────────────────────
+export function ShieldLogo({ size=32 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 40 44" fill="none">
-      <path d="M20 2L4 9v12c0 10.5 6.8 20.3 16 23 9.2-2.7 16-12.5 16-23V9L20 2z" fill="#dc2626" opacity="0.2" stroke="#dc2626" strokeWidth="2"/>
-      <path d="M20 10L10 14v8c0 6.2 4.5 12 10 14 5.5-2 10-7.8 10-14v-8L20 10z" fill="#dc2626" opacity="0.4"/>
-      <text x="20" y="26" textAnchor="middle" fill="#fff" fontSize="12" fontWeight="700" fontFamily="Inter,system-ui">PF</text>
+    <svg width={size} height={size*1.1} viewBox="0 0 40 44" fill="none">
+      <path d="M20 2L4 9v12c0 10.5 6.8 20.3 16 23 9.2-2.7 16-12.5 16-23V9L20 2z"
+        fill="#dc2626" opacity="0.2" stroke="#dc2626" strokeWidth="2"/>
+      <path d="M20 10L10 14v8c0 6.2 4.5 12 10 14 5.5-2 10-7.8 10-14v-8L20 10z"
+        fill="#dc2626" opacity="0.4"/>
+      <text x="20" y="27" textAnchor="middle" fill="white"
+        fontSize="12" fontWeight="700" fontFamily={F}>PF</text>
     </svg>
   );
 }
 
-// ── Severity Badge ─────────────────────────────────────────────────────────────
+// ── Severity Badge ────────────────────────────────────────────────────────────
 export function SeverityBadge({ severity }: { severity: Severity }) {
-  const classes: Record<Severity, string> = {
-    Critical: "bg-red-950 text-red-400 border border-red-500/30",
-    High:     "bg-orange-950 text-orange-400 border border-orange-500/30",
-    Medium:   "bg-yellow-950 text-yellow-400 border border-yellow-500/30",
-    Low:      "bg-blue-950 text-blue-400 border border-blue-500/30",
-    Info:     "bg-zinc-900 text-zinc-400 border border-zinc-600/30",
+  const bg: Record<Severity,string> = {
+    Critical:"#450a0a", High:"#431407", Medium:"#422006", Low:"#172554", Info:"#18181b"
+  };
+  const col: Record<Severity,string> = {
+    Critical:"#f87171", High:"#fb923c", Medium:"#fbbf24", Low:"#60a5fa", Info:"#71717a"
   };
   return (
-    <span className={`${classes[severity]} px-2 py-0.5 rounded text-xs font-semibold inline-flex items-center gap-1`}>
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: SEVERITY_COLORS[severity] }} />
+    <span style={{
+      background:bg[severity], color:col[severity],
+      border:`1px solid ${col[severity]}44`,
+      padding:"2px 9px", borderRadius:4,
+      fontSize:11, fontWeight:700,
+      display:"inline-flex", alignItems:"center", gap:5,
+      whiteSpace:"nowrap", fontFamily:F,
+    }}>
+      <span style={{ width:6, height:6, borderRadius:"50%", background:col[severity] }}/>
       {severity}
     </span>
   );
 }
 
-// ── Status Badges ──────────────────────────────────────────────────────────────
+// ── Vuln Status Badge ─────────────────────────────────────────────────────────
 export function VulnStatusBadge({ status }: { status: VulnStatus }) {
-  const cls = {
-    Open:     "bg-red-950/50 text-red-400 border border-red-500/30",
-    Fixed:    "bg-green-950/50 text-green-400 border border-green-500/30",
-    Accepted: "bg-zinc-900 text-zinc-400 border border-zinc-600/30",
+  const s = {
+    Open:     { bg:"rgba(220,38,38,0.12)",  color:"#f87171", border:"rgba(220,38,38,0.3)" },
+    Fixed:    { bg:"rgba(34,197,94,0.1)",   color:"#4ade80", border:"rgba(34,197,94,0.3)" },
+    Accepted: { bg:"rgba(113,113,122,0.1)", color:"#a1a1aa", border:"rgba(113,113,122,0.3)" },
   }[status];
-  return <span className={`${cls} px-2 py-0.5 rounded text-xs`}>{status}</span>;
-}
-
-export function ProjectStatusBadge({ status }: { status: ProjectStatus }) {
-  const cls = {
-    "In Progress": "bg-yellow-950/50 text-yellow-400 border border-yellow-500/30",
-    Completed:     "bg-green-950/50 text-green-400 border border-green-500/30",
-    Draft:         "bg-zinc-900 text-zinc-400 border border-zinc-600/30",
-  }[status];
-  return <span className={`${cls} px-2 py-0.5 rounded text-xs`}>{status}</span>;
-}
-
-// ── Buttons ────────────────────────────────────────────────────────────────────
-interface BtnProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "ghost" | "danger" | "muted";
-  size?: "sm" | "md" | "lg";
-}
-export function Btn({ variant = "muted", size = "md", className = "", children, ...props }: BtnProps) {
-  const variants = {
-    primary: "bg-primary hover:bg-primary-hover text-white shadow-[0_0_12px_rgba(220,38,38,0.3)] hover:shadow-[0_0_20px_rgba(220,38,38,0.5)]",
-    ghost:   "border border-[#dc2626] text-[#dc2626] hover:bg-[rgba(220,38,38,0.1)]",
-    danger:  "bg-red-900/30 border border-red-500/40 text-red-400 hover:bg-red-900/50",
-    muted:   "bg-[#1a1a1a] border border-[#2a2a2a] text-[#a1a1aa] hover:text-[#f5f5f5] hover:border-[#3a3a3a]",
-  };
-  const sizes = { sm: "px-3 py-1.5 text-xs", md: "px-4 py-2 text-sm", lg: "px-5 py-2.5 text-sm" };
   return (
-    <button {...props} className={`${variants[variant]} ${sizes[size]} font-medium rounded-lg transition-all duration-150 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${className}`}>
+    <span style={{
+      background:s.bg, color:s.color, border:`1px solid ${s.border}`,
+      padding:"2px 8px", borderRadius:4, fontSize:11, fontFamily:F,
+    }}>{status}</span>
+  );
+}
+
+// ── Project Status Badge ──────────────────────────────────────────────────────
+export function ProjectStatusBadge({ status }: { status: ProjectStatus }) {
+  const s = {
+    "In Progress": { bg:"rgba(245,158,11,0.12)", color:"#fbbf24", border:"rgba(245,158,11,0.3)" },
+    Completed:     { bg:"rgba(34,197,94,0.1)",   color:"#4ade80", border:"rgba(34,197,94,0.3)" },
+    Draft:         { bg:"rgba(113,113,122,0.1)", color:"#a1a1aa", border:"rgba(113,113,122,0.3)" },
+  }[status];
+  return (
+    <span style={{
+      background:s.bg, color:s.color, border:`1px solid ${s.border}`,
+      padding:"2px 8px", borderRadius:4, fontSize:11, fontFamily:F,
+    }}>{status}</span>
+  );
+}
+
+// ── Button ────────────────────────────────────────────────────────────────────
+interface BtnProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "primary"|"ghost"|"danger"|"muted";
+  size?: "sm"|"md"|"lg";
+}
+export function Btn({ variant="muted", size="md", style, children, ...props }: BtnProps) {
+  const v = {
+    primary: { background:"#dc2626", color:"#fff",    border:"1px solid #dc2626", boxShadow:"0 0 10px rgba(220,38,38,0.25)" },
+    ghost:   { background:"transparent", color:"#dc2626", border:"1px solid #dc2626" },
+    danger:  { background:"rgba(220,38,38,0.1)", color:"#f87171", border:"1px solid rgba(220,38,38,0.3)" },
+    muted:   { background:"#1a1a1a", color:"#a1a1aa", border:"1px solid #2a2a2a" },
+  }[variant];
+  const sz = { sm:{height:28,padding:"0 11px",fontSize:11}, md:{height:34,padding:"0 14px",fontSize:12}, lg:{height:40,padding:"0 18px",fontSize:13} }[size];
+  return (
+    <button {...props} style={{
+      ...v, ...sz,
+      display:"inline-flex", alignItems:"center", gap:6,
+      borderRadius:8, fontWeight:600, cursor:"pointer",
+      transition:"all 0.15s", fontFamily:F,
+      opacity: props.disabled ? 0.4 : 1,
+      ...(props.disabled ? { cursor:"not-allowed" } : {}),
+      ...style,
+    }}>
       {children}
     </button>
   );
 }
 
-// ── Input ──────────────────────────────────────────────────────────────────────
-export function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+// ── Input ─────────────────────────────────────────────────────────────────────
+const inputBase: React.CSSProperties = {
+  width:"100%",
+  background:"#111111",
+  border:"1px solid #1f1f1f",
+  color:"#f5f5f5",
+  borderRadius:8,
+  padding:"7px 11px",
+  fontSize:13,
+  outline:"none",
+  fontFamily:F,
+  transition:"border-color 0.15s, box-shadow 0.15s",
+};
+
+export function Input({ style, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+  const [focused, setFocused] = React.useState(false);
   return (
-    <input {...props} className={`w-full bg-[#111] border border-[#1f1f1f] text-[#f5f5f5] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#dc2626] focus:ring-2 focus:ring-[rgba(220,38,38,0.2)] placeholder:text-[#52525b] transition-all ${className}`} />
+    <input {...props} style={{
+      ...inputBase,
+      borderColor: focused ? "#dc2626" : "#1f1f1f",
+      boxShadow: focused ? "0 0 0 2px rgba(220,38,38,0.15)" : "none",
+      ...style,
+    }}
+    onFocus={e => { setFocused(true); props.onFocus?.(e); }}
+    onBlur={e  => { setFocused(false); props.onBlur?.(e); }}
+    />
   );
 }
 
-export function Textarea({ className = "", ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export function Textarea({ style, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const [focused, setFocused] = React.useState(false);
   return (
-    <textarea {...props} className={`w-full bg-[#111] border border-[#1f1f1f] text-[#f5f5f5] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#dc2626] focus:ring-2 focus:ring-[rgba(220,38,38,0.2)] placeholder:text-[#52525b] transition-all resize-y ${className}`} />
+    <textarea {...props} style={{
+      ...inputBase,
+      resize:"vertical", minHeight:80,
+      borderColor: focused ? "#dc2626" : "#1f1f1f",
+      boxShadow: focused ? "0 0 0 2px rgba(220,38,38,0.15)" : "none",
+      ...style,
+    }}
+    onFocus={e => { setFocused(true); props.onFocus?.(e); }}
+    onBlur={e  => { setFocused(false); props.onBlur?.(e); }}
+    />
   );
 }
 
-export function Select({ className = "", children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+export function Select({ style, children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  const [focused, setFocused] = React.useState(false);
   return (
-    <select {...props} className={`w-full bg-[#111] border border-[#1f1f1f] text-[#f5f5f5] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#dc2626] focus:ring-2 focus:ring-[rgba(220,38,38,0.2)] transition-all ${className}`}>
-      {children}
-    </select>
+    <select {...props} style={{
+      ...inputBase, cursor:"pointer",
+      borderColor: focused ? "#dc2626" : "#1f1f1f",
+      boxShadow: focused ? "0 0 0 2px rgba(220,38,38,0.15)" : "none",
+      ...style,
+    }}
+    onFocus={e => { setFocused(true); props.onFocus?.(e); }}
+    onBlur={e  => { setFocused(false); props.onBlur?.(e); }}
+    >{children}</select>
   );
 }
 
-// ── Card ───────────────────────────────────────────────────────────────────────
-export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <div className={`bg-[#111111] border border-[#1f1f1f] rounded-xl p-5 ${className}`}>{children}</div>;
+// ── Card ──────────────────────────────────────────────────────────────────────
+export function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <div style={{
+      background:"#111111", border:"1px solid #1f1f1f",
+      borderRadius:12, padding:18,
+      ...style,
+    }}>{children}</div>
+  );
 }
 
-// ── Label ──────────────────────────────────────────────────────────────────────
+// ── Label ─────────────────────────────────────────────────────────────────────
 export function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
   return (
-    <label className="block text-xs font-medium text-[#a1a1aa] uppercase tracking-wide mb-1.5">
-      {children}{required && <span className="text-[#dc2626] ml-1">*</span>}
+    <label style={{
+      display:"block", fontSize:11, fontWeight:600,
+      color:"#71717a", textTransform:"uppercase",
+      letterSpacing:"0.8px", marginBottom:6, fontFamily:F,
+    }}>
+      {children}
+      {required && <span style={{ color:"#dc2626", marginLeft:4 }}>*</span>}
     </label>
   );
 }
 
-// ── Modal ──────────────────────────────────────────────────────────────────────
-export function Modal({ open, onClose, title, children, maxWidth = "max-w-xl" }: {
-  open: boolean; onClose: () => void; title: string; children: React.ReactNode; maxWidth?: string;
+// ── Modal ─────────────────────────────────────────────────────────────────────
+export function Modal({ open, onClose, title, children, maxWidth=520 }: {
+  open:boolean; onClose:()=>void; title:string; children:React.ReactNode; maxWidth?:number;
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-      <div className={`relative bg-[#111] border border-[#2a2a2a] rounded-2xl shadow-2xl ${maxWidth} w-full max-h-[90vh] overflow-y-auto animate-slide-up`} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-5 border-b border-[#1f1f1f]">
-          <h2 className="text-base font-semibold text-[#f5f5f5]">{title}</h2>
-          <button onClick={onClose} className="text-[#71717a] hover:text-[#f5f5f5] transition-colors p-1 rounded-lg hover:bg-[#1a1a1a]">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
-          </button>
+    <div style={{
+      position:"fixed", inset:0, zIndex:50,
+      display:"flex", alignItems:"center", justifyContent:"center",
+      padding:16, background:"rgba(0,0,0,0.75)",
+      backdropFilter:"blur(4px)",
+      animation:"fadeIn 0.15s ease",
+    }} onClick={onClose}>
+      <div style={{
+        background:"#111111", border:"1px solid #2a2a2a",
+        borderRadius:16, width:"100%", maxWidth,
+        maxHeight:"88vh", overflowY:"auto",
+        boxShadow:"0 24px 60px rgba(0,0,0,0.6)",
+        animation:"slideUp 0.2s ease",
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{
+          display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"16px 20px", borderBottom:"1px solid #1f1f1f",
+        }}>
+          <span style={{ fontSize:14, fontWeight:600, color:"#f5f5f5", fontFamily:F }}>{title}</span>
+          <button onClick={onClose} style={{
+            background:"transparent", border:"none", color:"#71717a",
+            cursor:"pointer", padding:4, borderRadius:6,
+            fontSize:18, lineHeight:1, transition:"color 0.15s",
+          }} onMouseEnter={e=>(e.currentTarget.style.color="#f5f5f5")}
+             onMouseLeave={e=>(e.currentTarget.style.color="#71717a")}>✕</button>
         </div>
-        <div className="p-5">{children}</div>
+        <div style={{ padding:20 }}>{children}</div>
       </div>
     </div>
   );
@@ -128,12 +225,12 @@ export function Modal({ open, onClose, title, children, maxWidth = "max-w-xl" }:
 
 // ── Confirm Dialog ────────────────────────────────────────────────────────────
 export function ConfirmDialog({ open, onClose, onConfirm, title, message }: {
-  open: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string;
+  open:boolean; onClose:()=>void; onConfirm:()=>void; title:string; message:string;
 }) {
   return (
-    <Modal open={open} onClose={onClose} title={title} maxWidth="max-w-md">
-      <p className="text-[#a1a1aa] text-sm mb-5">{message}</p>
-      <div className="flex gap-3 justify-end">
+    <Modal open={open} onClose={onClose} title={title} maxWidth={400}>
+      <p style={{ color:"#a1a1aa", fontSize:13, marginBottom:20, lineHeight:1.6, fontFamily:F }}>{message}</p>
+      <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
         <Btn variant="muted" onClick={onClose}>Cancel</Btn>
         <Btn variant="danger" onClick={() => { onConfirm(); onClose(); }}>Delete</Btn>
       </div>
@@ -143,13 +240,16 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, message }: {
 
 // ── Empty State ───────────────────────────────────────────────────────────────
 export function EmptyState({ icon, title, message, action }: {
-  icon: React.ReactNode; title: string; message: string; action?: React.ReactNode;
+  icon:React.ReactNode; title:string; message:string; action?:React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="text-[#2a2a2a] mb-4">{icon}</div>
-      <h3 className="text-[#f5f5f5] font-semibold text-lg mb-2">{title}</h3>
-      <p className="text-[#71717a] text-sm max-w-sm mb-6">{message}</p>
+    <div style={{
+      display:"flex", flexDirection:"column", alignItems:"center",
+      justifyContent:"center", padding:"64px 32px", textAlign:"center",
+    }}>
+      <div style={{ color:"#2a2a2a", marginBottom:16 }}>{icon}</div>
+      <div style={{ color:"#f5f5f5", fontWeight:600, fontSize:16, marginBottom:8, fontFamily:F }}>{title}</div>
+      <p style={{ color:"#71717a", fontSize:13, maxWidth:320, marginBottom:24, lineHeight:1.6, fontFamily:F }}>{message}</p>
       {action}
     </div>
   );
@@ -157,26 +257,37 @@ export function EmptyState({ icon, title, message, action }: {
 
 // ── Tag Input ─────────────────────────────────────────────────────────────────
 export function TagInput({ tags, onChange, placeholder }: {
-  tags: string[]; onChange: (t: string[]) => void; placeholder?: string;
+  tags:string[]; onChange:(t:string[])=>void; placeholder?:string;
 }) {
   const [input, setInput] = React.useState("");
   const add = () => {
     const v = input.trim();
-    if (v && !tags.includes(v)) { onChange([...tags, v]); }
+    if (v && !tags.includes(v)) onChange([...tags, v]);
     setInput("");
   };
   return (
-    <div className="space-y-2">
-      <div className="flex gap-2">
-        <Input value={input} onChange={e => setInput(e.target.value)} placeholder={placeholder ?? "Add tag..."} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
+    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+      <div style={{ display:"flex", gap:8 }}>
+        <Input value={input} onChange={e=>setInput(e.target.value)}
+          placeholder={placeholder ?? "Add tag..."}
+          onKeyDown={e => { if (e.key==="Enter"){e.preventDefault();add();}}}/>
         <Btn variant="ghost" size="sm" onClick={add}>Add</Btn>
       </div>
       {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
           {tags.map(t => (
-            <span key={t} className="bg-[#1a1a1a] border border-[#2a2a2a] text-[#a1a1aa] px-2 py-0.5 rounded text-xs flex items-center gap-1">
+            <span key={t} style={{
+              background:"#1a1a1a", border:"1px solid #2a2a2a",
+              color:"#a1a1aa", padding:"2px 8px", borderRadius:4,
+              fontSize:11, display:"flex", alignItems:"center", gap:4, fontFamily:F,
+            }}>
               {t}
-              <button onClick={() => onChange(tags.filter(x => x !== t))} className="text-[#52525b] hover:text-[#dc2626]">×</button>
+              <button onClick={() => onChange(tags.filter(x=>x!==t))} style={{
+                background:"none", border:"none", color:"#52525b",
+                cursor:"pointer", padding:0, fontSize:13, lineHeight:1,
+              }}
+              onMouseEnter={e=>(e.currentTarget.style.color="#dc2626")}
+              onMouseLeave={e=>(e.currentTarget.style.color="#52525b")}>×</button>
             </span>
           ))}
         </div>
@@ -188,23 +299,42 @@ export function TagInput({ tags, onChange, placeholder }: {
 // ── Footer ────────────────────────────────────────────────────────────────────
 export function Footer() {
   return (
-    <div className="text-center text-xs text-[#3f3f46] py-3 mt-auto border-t border-[#1f1f1f]">
+    <div style={{
+      textAlign:"center", fontSize:11, color:"#3f3f46",
+      padding:"12px 0", marginTop:"auto",
+      borderTop:"1px solid #1a1a1a",
+      fontFamily:F,
+    }}>
       Made with ❤️ by Perchant
     </div>
   );
 }
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
-export function StatCard({ label, value, color, icon }: { label: string; value: number | string; color: string; icon: React.ReactNode }) {
+export function StatCard({ label, value, color, icon }: {
+  label:string; value:number|string; color:string; icon:React.ReactNode;
+}) {
   return (
-    <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-4 relative overflow-hidden">
-      <div className="absolute inset-0 opacity-5" style={{ background: `radial-gradient(ellipse at top left, ${color}, transparent)` }} />
-      <div className="flex items-start justify-between">
+    <div style={{
+      background:"#111111", border:"1px solid #1f1f1f",
+      borderRadius:12, padding:"14px 18px",
+      position:"relative", overflow:"hidden",
+    }}>
+      <div style={{
+        position:"absolute", inset:0,
+        background:`radial-gradient(ellipse at top left, ${color}10, transparent 60%)`,
+        pointerEvents:"none",
+      }}/>
+      <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between" }}>
         <div>
-          <p className="text-xs text-[#71717a] uppercase tracking-wide mb-1">{label}</p>
-          <p className="text-3xl font-bold" style={{ color }}>{value}</p>
+          <p style={{ fontSize:10, color:"#71717a", textTransform:"uppercase",
+            letterSpacing:"0.8px", marginBottom:8, fontFamily:F, fontWeight:600 }}>{label}</p>
+          <p style={{ fontSize:30, fontWeight:800, color, fontFamily:F, lineHeight:1 }}>{value}</p>
         </div>
-        <div className="p-2 rounded-lg" style={{ background: `${color}20`, color }}>{icon}</div>
+        <div style={{
+          padding:8, borderRadius:8,
+          background:`${color}18`, color,
+        }}>{icon}</div>
       </div>
     </div>
   );
