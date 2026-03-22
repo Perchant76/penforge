@@ -3,34 +3,21 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::Manager;
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 fn app_data_path(app: &tauri::AppHandle, filename: &str) -> Result<PathBuf, String> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir.join(filename))
 }
 
-// ── Commands ──────────────────────────────────────────────────────────────────
-
 #[tauri::command]
 pub fn read_json_file(app: tauri::AppHandle, filename: String) -> Result<String, String> {
     let path = app_data_path(&app, &filename)?;
-    if !path.exists() {
-        return Ok(String::new());
-    }
+    if !path.exists() { return Ok(String::new()); }
     fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn write_json_file(
-    app: tauri::AppHandle,
-    filename: String,
-    content: String,
-) -> Result<(), String> {
+pub fn write_json_file(app: tauri::AppHandle, filename: String, content: String) -> Result<(), String> {
     let path = app_data_path(&app, &filename)?;
     fs::write(&path, content).map_err(|e| e.to_string())
 }
@@ -46,11 +33,7 @@ pub fn verify_pin(input: String, hash: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
-pub fn export_ptsync(
-    app: tauri::AppHandle,
-    data: String,
-    path: String,
-) -> Result<(), String> {
+pub fn export_ptsync(_app: tauri::AppHandle, data: String, path: String) -> Result<(), String> {
     fs::write(&path, data).map_err(|e| e.to_string())
 }
 
@@ -61,13 +44,10 @@ pub fn import_ptsync(path: String) -> Result<String, String> {
 
 #[tauri::command]
 pub fn get_app_data_dir(app: tauri::AppHandle) -> Result<String, String> {
-    app.path()
-        .app_data_dir()
+    app.path().app_data_dir()
         .map(|p| p.to_string_lossy().to_string())
         .map_err(|e| e.to_string())
 }
-
-// ── App Entry ─────────────────────────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
