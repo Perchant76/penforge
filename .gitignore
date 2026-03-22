@@ -1,0 +1,72 @@
+# ─────────────────────────────
+# Rust
+# ─────────────────────────────
+/target
+**/target/
+
+# Cargo lock (nechaj iba ak je appka, nie knižnica)
+# Cargo.lock
+
+# ─────────────────────────────
+# Tauri
+# ─────────────────────────────
+src-tauri/target/*
+src-tauri/binaries/*
+
+# Build outputs
+dist/
+build/
+
+# ─────────────────────────────
+# Node / frontend
+# ─────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Vite
+.vite/
+
+# ─────────────────────────────
+# Environment
+# ─────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─────────────────────────────
+# OS files
+# ─────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─────────────────────────────
+# IDE
+# ─────────────────────────────
+.vscode/
+.idea/
+*.swp
+
+# ─────────────────────────────
+# Logs
+# ─────────────────────────────
+*.log
+
+# ─────────────────────────────
+# Binaries (extra safety)
+# ─────────────────────────────
+*.exe
+*.dll
+*.so
+*.dylib
+*.pdb
+*.rlib
+
+# ─────────────────────────────
+# Coverage / temp
+# ─────────────────────────────
+coverage/
+tmp/
+temp/
