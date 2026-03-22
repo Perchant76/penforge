@@ -1,14 +1,17 @@
 // src/components/pages/ProjectDetail.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useApp } from "../../lib/AppContext";
 import { Btn, SeverityBadge, VulnStatusBadge, ProjectStatusBadge, Footer, ConfirmDialog, EmptyState } from "../ui";
 import { VulnForm } from "./VulnForm";
-import { ChevronLeft, Plus, Shield, Pencil, Trash2, FileText, Download, Upload } from "lucide-react";
+import { ChevronLeft, Plus, Shield, Pencil, Trash2, FileText, Download, Upload, ChevronDown } from "lucide-react";
 import type { Severity, Vulnerability } from "../../types";
 import { SEVERITY_ORDER } from "../../types";
 import { save as saveDialog, open as openDialog } from "@tauri-apps/plugin-dialog";
 import * as storage from "../../lib/storage";
-import { generateReport } from "../../lib/reportGenerator";
+import { generateReport, getBuiltInTemplate } from "../../lib/reportGenerator";
+
+interface Template { id: string; name: string; content: string; isBuiltIn: boolean; }
 
 const TABS: (Severity | "All")[] = ["All","Critical","High","Medium","Low","Info"];
 
@@ -21,6 +24,23 @@ export function ProjectDetail() {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [importMsg, setImportMsg] = useState("");
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState("builtin");
+  const [showTemplateMenu, setShowTemplateMenu] = useState(false);
+
+  useEffect(() => { loadTemplates(); }, []);
+
+  const loadTemplates = async () => {
+    try {
+      const names = await invoke<string[]>("list_templates");
+      const loaded: Template[] = [];
+      for (const n of names) {
+        const raw = await invoke<string>("read_json_file", { filename: `templates/${n}` }).catch(() => "");
+        if (raw) { try { loaded.push(JSON.parse(raw)); } catch {} }
+      }
+      setTemplates(loaded);
+    } catch {}
+  };
 
   if (!project) { navigate("projects"); return null; }
   if (addingVuln || editingVuln) {
@@ -33,9 +53,7 @@ export function ProjectDetail() {
   const displayed = [...pVulns.filter(v => filter === "All" || v.severity === filter)]
     .sort((a,b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 
-  const delVuln = async (id: string) => {
-    await saveVulns(vulns.filter(v => v.id !== id));
-  };
+  const delVuln = async (id: string) => saveVulns(vulns.filter(v => v.id !== id));
 
   const handleImport = async () => {
     const path = await openDialog({ filters: [{ name:"PTSync", extensions:["ptsync","json"] }] });
@@ -44,26 +62,38 @@ export function ProjectDetail() {
       const raw = await storage.importPtsync(path);
       const data = JSON.parse(raw);
       if (data.format !== "ptsync-v1") { setImportMsg("Invalid .ptsync file format."); return; }
-      const incoming: Vulnerability[] = data.vulnerabilities;
       let imported = 0, skipped = 0;
       const newVulns = [...vulns];
-      for (const iv of incoming) {
-        const dup = pVulns.some(pv => pv.title === iv.title && pv.severity === iv.severity);
-        if (dup) { skipped++; continue; }
+      for (const iv of data.vulnerabilities) {
+        if (pVulns.some(pv => pv.title === iv.title && pv.severity === iv.severity)) { skipped++; continue; }
         newVulns.push({ ...iv, id: crypto.randomUUID(), project_id: project.id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
         imported++;
       }
       await saveVulns(newVulns);
-      setImportMsg(`✓ Imported: ${imported}  |  Skipped (duplicates): ${skipped}  |  Total: ${imported + skipped}`);
+      setImportMsg(`✓ Imported: ${imported}  |  Skipped: ${skipped}`);
     } catch { setImportMsg("Failed to read .ptsync file."); }
     setTimeout(() => setImportMsg(""), 5000);
   };
 
   const handleReport = async () => {
     setGeneratingReport(true);
-    try { await generateReport(project, pVulns); }
-    finally { setGeneratingReport(false); }
+    try {
+      let template: string | undefined;
+      if (selectedTemplate !== "builtin") {
+        const t = templates.find(t => t.id === selectedTemplate);
+        if (t) template = t.content;
+      }
+      await generateReport(project, pVulns, template);
+    } catch (e) {
+      console.error("Report generation failed:", e);
+      alert(`Report failed: ${e}`);
+    } finally { setGeneratingReport(false); }
   };
+
+  const allTemplateOptions = [
+    { id: "builtin", name: "PenForge Default" },
+    ...templates.map(t => ({ id: t.id, name: t.name })),
+  ];
 
   return (
     <div className="flex flex-col min-h-full">
@@ -73,38 +103,70 @@ export function ProjectDetail() {
           <button onClick={() => navigate("projects")} className="text-[#71717a] hover:text-[#f5f5f5] flex items-center gap-1.5 text-sm mb-3 transition-colors">
             <ChevronLeft size={16}/> All Projects
           </button>
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="flex items-center gap-3 mb-1">
                 <h1 className="text-xl font-bold text-[#f5f5f5]">{project.name}</h1>
                 <ProjectStatusBadge status={project.status}/>
               </div>
-              <div className="flex items-center gap-3 text-sm text-[#71717a]">
+              <div className="flex items-center gap-3 text-sm text-[#71717a] flex-wrap">
                 <span>{project.client}</span>
-                <span>•</span>
-                <span>{project.start_date} → {project.end_date}</span>
-                {project.scope && <><span>•</span><span className="truncate max-w-xs">{project.scope}</span></>}
+                <span>•</span><span>{project.start_date} → {project.end_date}</span>
+                {project.scope && <><span>•</span><span className="truncate max-w-xs text-xs">{project.scope}</span></>}
               </div>
             </div>
-            <div className="flex gap-2 flex-shrink-0">
+            <div className="flex gap-2 flex-wrap items-center">
               <Btn variant="muted" size="sm" onClick={handleImport}><Upload size={13}/>Import .ptsync</Btn>
               <Btn variant="muted" size="sm" onClick={() => navigate("sync", project.id)}><Download size={13}/>Export</Btn>
-              <Btn variant="ghost" size="sm" onClick={handleReport} disabled={generatingReport}><FileText size={13}/>{generatingReport ? "Generating..." : "Generate Report"}</Btn>
+
+              {/* Report button with template selector */}
+              <div className="relative">
+                <div className="flex items-center">
+                  <button onClick={handleReport} disabled={generatingReport}
+                    className="flex items-center gap-2 h-8 px-3 bg-[rgba(220,38,38,0.1)] border border-[#dc2626]/40 text-[#dc2626] hover:bg-[rgba(220,38,38,0.2)] text-xs font-medium rounded-l-lg transition-all disabled:opacity-50">
+                    <FileText size={13}/>{generatingReport ? "Generating…" : "Generate Report"}
+                  </button>
+                  <button onClick={() => setShowTemplateMenu(!showTemplateMenu)}
+                    className="flex items-center h-8 px-2 bg-[rgba(220,38,38,0.1)] border border-l-0 border-[#dc2626]/40 text-[#dc2626] hover:bg-[rgba(220,38,38,0.2)] rounded-r-lg transition-all">
+                    <ChevronDown size={12}/>
+                  </button>
+                </div>
+                {showTemplateMenu && (
+                  <div className="absolute right-0 top-full mt-1 bg-[#111] border border-[#2a2a2a] rounded-xl shadow-xl z-20 min-w-48 py-1 animate-slide-up">
+                    <div className="px-3 py-1.5 text-[10px] text-[#52525b] uppercase tracking-wide font-medium">Select Template</div>
+                    {allTemplateOptions.map(t => (
+                      <button key={t.id} onClick={() => { setSelectedTemplate(t.id); setShowTemplateMenu(false); }}
+                        className={`w-full text-left px-3 py-2 text-xs transition-colors flex items-center gap-2 ${selectedTemplate === t.id ? "text-[#dc2626] bg-[rgba(220,38,38,0.08)]" : "text-[#a1a1aa] hover:bg-[#1a1a1a]"}`}>
+                        {selectedTemplate === t.id && <span className="w-1 h-1 rounded-full bg-[#dc2626]"/>}
+                        {t.name}
+                      </button>
+                    ))}
+                    <div className="border-t border-[#1f1f1f] mt-1 pt-1">
+                      <button onClick={() => { setShowTemplateMenu(false); navigate("templates"); }}
+                        className="w-full text-left px-3 py-2 text-xs text-[#52525b] hover:text-[#dc2626] hover:bg-[#1a1a1a] transition-colors">
+                        + Manage Templates…
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <Btn variant="primary" size="sm" onClick={() => setAddingVuln(true)}><Plus size={13}/>Add Finding</Btn>
             </div>
           </div>
           {importMsg && <div className="mt-3 text-sm text-[#22c55e] bg-green-950/30 border border-green-500/20 rounded-lg px-4 py-2.5">{importMsg}</div>}
         </div>
 
-        {/* Stats row */}
+        {/* Stats */}
         <div className="grid grid-cols-5 gap-3">
           {(["Critical","High","Medium","Low","Info"] as Severity[]).map(s => {
             const cnt = pVulns.filter(v => v.severity === s).length;
-            const colors = { Critical:"#ef4444",High:"#f97316",Medium:"#f59e0b",Low:"#3b82f6",Info:"#71717a" };
+            const cols: Record<string,string> = { Critical:"#ef4444",High:"#f97316",Medium:"#f59e0b",Low:"#3b82f6",Info:"#71717a" };
             return (
-              <div key={s} onClick={() => setFilter(filter === s ? "All" : s)} style={{ borderColor: filter === s ? colors[s] : "#1f1f1f" }}
-                className="bg-[#111] border rounded-xl p-3 cursor-pointer hover:border-opacity-60 transition-all text-center">
-                <div className="text-2xl font-bold" style={{ color: colors[s] }}>{cnt}</div>
+              <div key={s} onClick={() => setFilter(filter === s ? "All" : s)}
+                style={{ borderColor: filter === s ? cols[s] : "#1f1f1f" }}
+                className="bg-[#111] border rounded-xl p-3 cursor-pointer transition-all text-center hover:border-opacity-60">
+                <div className="text-2xl font-bold" style={{ color: cols[s] }}>{cnt}</div>
                 <div className="text-xs text-[#71717a] mt-0.5">{s}</div>
               </div>
             );
@@ -112,20 +174,19 @@ export function ProjectDetail() {
         </div>
 
         {/* Filter tabs */}
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-wrap">
           {TABS.map(t => (
             <button key={t} onClick={() => setFilter(t)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                filter === t ? "bg-[rgba(220,38,38,0.15)] text-[#dc2626] border border-[#dc2626]/30" : "text-[#71717a] hover:text-[#a1a1aa] hover:bg-[#1a1a1a]"}`}>
-              {t} {t !== "All" && `(${pVulns.filter(v=>v.severity===t).length})`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${filter===t?"bg-[rgba(220,38,38,0.15)] text-[#dc2626] border border-[#dc2626]/30":"text-[#71717a] hover:text-[#a1a1aa] hover:bg-[#1a1a1a]"}`}>
+              {t}{t!=="All"&&` (${pVulns.filter(v=>v.severity===t).length})`}
             </button>
           ))}
         </div>
 
-        {/* Vuln table */}
+        {/* Table */}
         {displayed.length === 0 ? (
-          <EmptyState icon={<Shield size={48}/>} title="No findings" message={filter === "All" ? "Add your first finding to this project." : `No ${filter} findings.`}
-            action={filter === "All" ? <Btn variant="primary" onClick={() => setAddingVuln(true)}><Plus size={14}/>Add Finding</Btn> : undefined}/>
+          <EmptyState icon={<Shield size={48}/>} title="No findings" message={filter==="All"?"Add your first finding to this project.":`No ${filter} findings.`}
+            action={filter==="All"?<Btn variant="primary" onClick={()=>setAddingVuln(true)}><Plus size={14}/>Add Finding</Btn>:undefined}/>
         ) : (
           <div className="bg-[#111] border border-[#1f1f1f] rounded-xl overflow-hidden">
             <table className="w-full">
@@ -133,15 +194,15 @@ export function ProjectDetail() {
                 <tr>{["Severity","Title","CVSS","CVE","Status",""].map(h=><th key={h} className="text-left px-4 py-3 text-xs font-medium text-[#71717a] uppercase tracking-wide">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-[#1a1a1a]">
-                {displayed.map(v => (
-                  <tr key={v.id} onClick={() => setEditingVuln(v)} className="hover:bg-[#1a1a1a] cursor-pointer group transition-colors">
+                {displayed.map(v=>(
+                  <tr key={v.id} onClick={()=>setEditingVuln(v)} className="hover:bg-[#1a1a1a] cursor-pointer group transition-colors">
                     <td className="px-4 py-3"><SeverityBadge severity={v.severity}/></td>
                     <td className="px-4 py-3">
                       <div className="text-sm font-medium text-[#f5f5f5] group-hover:text-white">{v.title}</div>
-                      {v.tags.length > 0 && <div className="flex gap-1 mt-1">{v.tags.slice(0,3).map(t=><span key={t} className="text-xs bg-[#1a1a1a] text-[#71717a] px-1.5 py-0.5 rounded">{t}</span>)}</div>}
+                      {v.tags.length>0&&<div className="flex gap-1 mt-1">{v.tags.slice(0,3).map(t=><span key={t} className="text-xs bg-[#1a1a1a] text-[#71717a] px-1.5 py-0.5 rounded">{t}</span>)}</div>}
                     </td>
-                    <td className="px-4 py-3 text-sm font-mono text-[#a1a1aa]">{v.cvss_score !== null ? v.cvss_score.toFixed(1) : "—"}</td>
-                    <td className="px-4 py-3 text-xs font-mono text-[#71717a]">{v.cve_id || "—"}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-[#a1a1aa]">{v.cvss_score!==null?v.cvss_score.toFixed(1):"—"}</td>
+                    <td className="px-4 py-3 text-xs font-mono text-[#71717a]">{v.cve_id||"—"}</td>
                     <td className="px-4 py-3"><VulnStatusBadge status={v.status}/></td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
