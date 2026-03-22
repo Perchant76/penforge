@@ -1,3 +1,8 @@
+# Run this PowerShell script from inside your penforge folder
+# It deletes the broken lib.rs and writes the correct one
+
+$librs = "src-tauri\src\lib.rs"
+$content = @'
 // src-tauri/src/lib.rs
 use std::fs;
 use std::path::PathBuf;
@@ -28,7 +33,7 @@ fn hash_pin(pin: String) -> Result<String, String> {
 
 #[tauri::command]
 fn verify_pin(input: String, hash: String) -> Result<bool, String> {
-    bcrypt::verify(input, &hash).map_err(|e| e.to_string())
+    bcrypt::verify(input, hash).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -65,3 +70,17 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running PenForge");
 }
+'@
+
+Remove-Item -Force $librs -ErrorAction SilentlyContinue
+[System.IO.File]::WriteAllText((Resolve-Path "src-tauri\src").Path + "\lib.rs", $content)
+
+$lines = (Get-Content $librs).Count
+Write-Host "✓ lib.rs written — $lines lines"
+
+# Also nuke the build cache so Cargo starts fresh
+if (Test-Path "src-tauri\target") {
+    Remove-Item -Recurse -Force "src-tauri\target\debug\.fingerprint\penforge-*" -ErrorAction SilentlyContinue
+    Write-Host "✓ Build cache cleared"
+}
+Write-Host "Now run: cargo tauri dev"
