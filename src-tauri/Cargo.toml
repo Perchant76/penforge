@@ -5,7 +5,9 @@ description = "PenForge — Penetration Testing Report Manager"
 authors = ["Perchant"]
 edition = "2021"
 
-
+[lib]
+name = "penforge_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
 name = "penforge"
