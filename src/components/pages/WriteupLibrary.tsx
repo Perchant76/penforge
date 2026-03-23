@@ -53,17 +53,17 @@ export function WriteupLibrary() {
     let r = search ? searchWriteupsAll(search) : WRITEUPS_DB_FULL;
     // Add matching custom writeups
     const customFiltered = search
-      ? customWriteups.filter(w => w.title.toLowerCase().includes(search.toLowerCase()) || w.category.toLowerCase().includes(search.toLowerCase()) || w.tags.some(t => t.toLowerCase().includes(search.toLowerCase())))
+      ? customWriteups.filter((w: Writeup) => w.title.toLowerCase().includes(search.toLowerCase()) || w.category.toLowerCase().includes(search.toLowerCase()) || w.tags.some((t: string) => t.toLowerCase().includes(search.toLowerCase())))
       : customWriteups;
     r = [...r, ...customFiltered];
-    if (catFilter !== "All") r = r.filter(w => w.category === catFilter);
-    if (sevFilter !== "All") r = r.filter(w => w.severity === sevFilter);
+    if (catFilter !== "All") r = r.filter((w: Writeup) => w.category === catFilter);
+    if (sevFilter !== "All") r = r.filter((w: Writeup) => w.severity === sevFilter);
     return r;
   }, [search, catFilter, sevFilter, customWriteups]);
 
   const catCounts = useMemo(() => {
     const m: Record<string,number> = {};
-    allWriteups.forEach(w => { m[w.category] = (m[w.category]??0)+1; });
+    allWriteups.forEach((w: Writeup) => { m[w.category] = (m[w.category]??0)+1; });
     return m;
   }, [allWriteups]);
 
@@ -147,7 +147,7 @@ export function WriteupLibrary() {
           <select value={catFilter} onChange={e=>setCatFilter(e.target.value as any)}
             style={{ background:"#0d0d0d", border:"1px solid #1f1f1f", color:"#f5f5f5", borderRadius:8, padding:"5px 10px", fontSize:12, outline:"none", fontFamily:F }}>
             <option value="All">All Categories ({allWriteups.length})</option>
-            {WRITEUP_CATEGORIES.map(c=>catCounts[c]?<option key={c} value={c}>{c} ({catCounts[c]})</option>:null)}
+            {WRITEUP_CATEGORIES.map((c: WriteupCategory)=>catCounts[c]?<option key={c} value={c}>{c} ({catCounts[c]})</option>:null)}
           </select>
         </div>
 
@@ -159,7 +159,7 @@ export function WriteupLibrary() {
             <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:120, color:"#52525b", fontSize:12 }}>
               <Shield size={28} style={{ marginBottom:8, opacity:.3 }}/>No writeups match
             </div>
-          ) : results.map(w=>{
+          ) : results.map((w: Writeup)=>{
             const custom = customWriteups.some(c=>c.id===w.id);
             const active = selected?.id===w.id;
             return (
@@ -235,7 +235,7 @@ export function WriteupLibrary() {
 
             {selected.tags.length>0&&(
               <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:20 }}>
-                {selected.tags.map(t=><span key={t} style={{ display:"inline-flex", alignItems:"center", gap:4, background:"#111", border:"1px solid #1f1f1f", color:"#71717a", fontSize:10, padding:"2px 8px", borderRadius:4, fontFamily:F }}><Tag size={9}/>{t}</span>)}
+                {selected.tags.map((t: string)=><span key={t} style={{ display:"inline-flex", alignItems:"center", gap:4, background:"#111", border:"1px solid #1f1f1f", color:"#71717a", fontSize:10, padding:"2px 8px", borderRadius:4, fontFamily:F }}><Tag size={9}/>{t}</span>)}
               </div>
             )}
 
@@ -262,7 +262,7 @@ export function WriteupLibrary() {
               <div style={{ marginBottom:20 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}><div style={{ width:3, height:13, background:"#dc2626", borderRadius:2 }}/><span style={{ fontSize:11, fontWeight:700, color:"#a1a1aa", textTransform:"uppercase", letterSpacing:"0.8px" }}>References</span></div>
                 <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                  {selected.references.map(r=><div key={r} style={{ display:"flex", alignItems:"center", gap:8 }}><Link size={11} style={{ color:"#3b82f6", flexShrink:0 }}/><span style={{ fontSize:11, color:"#3b82f6", fontFamily:"monospace", wordBreak:"break-all" }}>{r}</span></div>)}
+                  {selected.references.map((r: string)=><div key={r} style={{ display:"flex", alignItems:"center", gap:8 }}><Link size={11} style={{ color:"#3b82f6", flexShrink:0 }}/><span style={{ fontSize:11, color:"#3b82f6", fontFamily:"monospace", wordBreak:"break-all" }}>{r}</span></div>)}
                 </div>
               </div>
             )}
@@ -282,7 +282,7 @@ export function WriteupLibrary() {
             </div>
             <div><Label>Category</Label>
               <Select value={customForm.category} onChange={e=>cf("category",e.target.value)}>
-                {WRITEUP_CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}
+                {WRITEUP_CATEGORIES.map((c: WriteupCategory)=><option key={c} value={c}>{c}</option>)}
               </Select>
             </div>
             <div><Label>CVSS Score</Label><Input type="number" min={0} max={10} step={0.1} value={customForm.cvss_score??""} onChange={e=>cf("cvss_score",e.target.value?parseFloat(e.target.value):null)} placeholder="0.0 – 10.0"/></div>
@@ -299,7 +299,7 @@ export function WriteupLibrary() {
                 <Btn variant="ghost" size="sm" onClick={addTag}>Add</Btn>
               </div>
               <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
-                {customForm.tags.map(t=><span key={t} style={{ background:"#1a1a1a", border:"1px solid #2a2a2a", color:"#a1a1aa", fontSize:11, padding:"2px 8px", borderRadius:4, display:"flex", alignItems:"center", gap:4 }}>{t}<button onClick={()=>cf("tags",customForm.tags.filter(x=>x!==t))} style={{ background:"none", border:"none", color:"#52525b", cursor:"pointer", fontSize:13, lineHeight:1 }}>×</button></span>)}
+                {customForm.tags.map((t: string)=><span key={t} style={{ background:"#1a1a1a", border:"1px solid #2a2a2a", color:"#a1a1aa", fontSize:11, padding:"2px 8px", borderRadius:4, display:"flex", alignItems:"center", gap:4 }}>{t}<button onClick={()=>cf("tags",customForm.tags.filter((x: string)=>x!==t))} style={{ background:"none", border:"none", color:"#52525b", cursor:"pointer", fontSize:13, lineHeight:1 }}>×</button></span>)}
               </div>
             </div>
             <div style={{ gridColumn:"1/-1" }}>
@@ -308,7 +308,7 @@ export function WriteupLibrary() {
                 <Input value={refInput} onChange={e=>setRefInput(e.target.value)} placeholder="https://…" onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addRef();}}} style={{ flex:1 }}/>
                 <Btn variant="ghost" size="sm" onClick={addRef}>Add</Btn>
               </div>
-              {customForm.references.map(r=><div key={r} style={{ fontSize:11, color:"#3b82f6", fontFamily:"monospace", marginBottom:2 }}>{r}<button onClick={()=>cf("references",customForm.references.filter(x=>x!==r))} style={{ background:"none", border:"none", color:"#52525b", cursor:"pointer", marginLeft:8 }}>×</button></div>)}
+              {customForm.references.map((r: string)=><div key={r} style={{ fontSize:11, color:"#3b82f6", fontFamily:"monospace", marginBottom:2 }}>{r}<button onClick={()=>cf("references",customForm.references.filter((x: string)=>x!==r))} style={{ background:"none", border:"none", color:"#52525b", cursor:"pointer", marginLeft:8 }}>×</button></div>)}
             </div>
           </div>
           <div style={{ display:"flex", gap:10, justifyContent:"flex-end", paddingTop:8, borderTop:"1px solid #1f1f1f" }}>

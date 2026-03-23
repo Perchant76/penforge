@@ -26,7 +26,7 @@ function blankVuln(): Omit<Vulnerability, "id"|"project_id"|"created_at"|"update
     title: "", severity: "Info", cvss_score: null, cve_id: "",
     description: "", impact: "", steps_to_reproduce: "",
     proof_of_concept: "", remediation: "", references: [],
-    status: "Open", tags: [],
+    status: "Open", tags: [], evidence_paths: [],
   };
 }
 
